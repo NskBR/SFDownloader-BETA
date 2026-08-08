@@ -1616,6 +1616,8 @@ input::-ms-clear {
 
 /* Ícone de arquivo (cor por tipo, canto suave, sem box cinza) */
 .styled-file-icon { position: relative; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; color: #fff; background: linear-gradient(145deg, #3a3d44, #2a2c31); box-shadow: none; flex-shrink: 0; overflow: hidden; }
+.styled-file-icon--svg { background: transparent !important; border-radius: 0 !important; box-shadow: none !important; overflow: visible !important; }
+.styled-file-svg-img { width: 100%; height: 100%; object-fit: contain; display: block; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35)); }
 .styled-file-icon svg { width: 21px; opacity: 0.92; }
 .styled-file-icon b { position: absolute; bottom: 4px; font-size: 8px; letter-spacing: -0.02em; color: rgba(255,255,255,0.9); text-shadow: 0 1px 2px rgba(0,0,0,0.4); }
 .styled-file-icon--pdf { background: linear-gradient(145deg, #ff775d, #b3262d); }
@@ -2182,6 +2184,7 @@ input::-ms-clear {
   box-shadow: var(--shadow);
   font-size: 13px;
 }
+.dw-window.status-paused { --dw-accent: var(--st-paused, #f59e0b); }
 .dw-window.status-completed { --dw-accent: var(--st-completed); }
 .dw-window.status-failed { --dw-accent: var(--st-failed); }
 .dw-window.status-cancelled { --dw-accent: var(--st-failed); }
@@ -2330,6 +2333,12 @@ input::-ms-clear {
   background: linear-gradient(90deg, #f59e0b, #fbbf24);
   box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
   animation: dw-bar-check-pulse 1.8s ease-in-out infinite;
+}
+/* Download pausado: cor âmbar (#f59e0b) */
+.dw-window.status-paused .dw-bar i,
+.dw-bar--paused i {
+  background: var(--st-paused, #f59e0b) !important;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.45) !important;
 }
 @keyframes dw-bar-check-pulse {
   0%, 100% { opacity: 1; }
@@ -2696,6 +2705,70 @@ input::-ms-clear {
 .dw-cancel-dialog footer button.delete:hover:not(:disabled) {
   filter: brightness(1.1);
 }
+
+/* Modal de confirmação de cancelamento (.dw-confirm-cancel) */
+.dw-confirm-cancel {
+  position: absolute !important;
+  inset: 0 !important;
+  background: var(--bg-fill, var(--panel, #0b0d12)) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 16px !important;
+  padding: 20px !important;
+  z-index: 99999 !important;
+  animation: dw-fade 0.18s ease !important;
+}
+.dw-confirm-cancel p {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text, #ffffff);
+  margin: 0;
+}
+.dw-confirm-cancel-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dw-btn-danger {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 6px;
+  background: var(--st-failed, #ef4444);
+  color: #ffffff;
+  border: none;
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  transition: 0.15s;
+}
+.dw-btn-danger:hover { filter: brightness(1.1); }
+.dw-btn-warning {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text, #ffffff);
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.12));
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  transition: 0.15s;
+}
+.dw-btn-warning:hover { background: rgba(255, 255, 255, 0.14); }
+.dw-btn-secondary {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2, #8a92a3);
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  font-size: 12px;
+  cursor: pointer;
+  transition: 0.15s;
+}
+.dw-btn-secondary:hover { color: var(--text); border-color: rgba(255, 255, 255, 0.2); }
 
 /* ----- Download toolbar buttons (pause-all / resume-all) ------------------ */
 .btn-pause-all, .btn-resume-all {

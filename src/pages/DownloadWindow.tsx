@@ -150,6 +150,11 @@ export function DownloadWindow({ downloadId }: { downloadId: string }) {
   const notFoundCount = useRef(0);
 
   useEffect(() => {
+    void appWindow.show().catch(() => {});
+    void appWindow.setFocus().catch(() => {});
+  }, []);
+
+  useEffect(() => {
     let fitted = false;
     const fit = async () => {
       if (!detailsOpen && !cancelOpen && fitted) return;
@@ -163,6 +168,8 @@ export function DownloadWindow({ downloadId }: { downloadId: string }) {
 
   useEffect(() => {
     let active = true;
+    const activeStatuses = ["downloading", "checking_files", "assembling", "extracting", "completed"];
+
     const fetchTask = () => {
       void Promise.all([
         service.listDownloads(),
@@ -172,9 +179,32 @@ export function DownloadWindow({ downloadId }: { downloadId: string }) {
         const found = list.find((item) => item.id === downloadId || item.infoHash === downloadId);
         if (found) {
           notFoundCount.current = 0;
-          setTask(found);
-          setDownloaded(found.totalDownloaded);
-          setSpeed(found.speedCurrent);
+          setTask((current) => {
+            if (!current) return found;
+            const isDownloading = activeStatuses.includes(found.status);
+            return {
+              ...found,
+              totalDownloaded: isDownloading
+                ? Math.max(current.totalDownloaded, found.totalDownloaded)
+                : found.totalDownloaded,
+              speedCurrent: found.status === "downloading" && found.speedCurrent === 0
+                ? current.speedCurrent
+                : found.speedCurrent,
+            };
+          });
+
+          setDownloaded((prev) => {
+            const isDownloading = activeStatuses.includes(found.status);
+            return isDownloading ? Math.max(prev, found.totalDownloaded) : found.totalDownloaded;
+          });
+
+          setSpeed((prev) => {
+            if (found.status === "downloading" && found.speedCurrent === 0) {
+              return prev;
+            }
+            return found.speedCurrent;
+          });
+
           setStatus(found.status);
           setExtraction(result);
         } else {
@@ -191,19 +221,36 @@ export function DownloadWindow({ downloadId }: { downloadId: string }) {
 
     const listener = listen<DownloadProgress>("download-progress", ({ payload }) => {
       if (payload.id !== downloadId) return;
-      setDownloaded(payload.downloaded);
-      setSpeed(payload.speed);
+
       setStatus(payload.status);
+
+      setDownloaded((prev) => {
+        const isDownloading = activeStatuses.includes(payload.status);
+        return isDownloading ? Math.max(prev, payload.downloaded) : payload.downloaded;
+      });
+
+      setSpeed((prev) => {
+        if (payload.status === "downloading" && payload.speed === 0) {
+          return prev;
+        }
+        return payload.speed;
+      });
+
       setTask((current) => {
         if (!current) {
           fetchTask();
           return current;
         }
+        const isDownloading = activeStatuses.includes(payload.status);
         return {
           ...current,
           status: payload.status,
-          totalDownloaded: payload.downloaded,
-          speedCurrent: payload.speed,
+          totalDownloaded: isDownloading
+            ? Math.max(current.totalDownloaded, payload.downloaded)
+            : payload.downloaded,
+          speedCurrent: payload.status === "downloading" && payload.speed === 0
+            ? current.speedCurrent
+            : payload.speed,
         };
       });
       if (payload.error) {
@@ -315,66 +362,66 @@ export function DownloadWindow({ downloadId }: { downloadId: string }) {
         </div>
       </header>
 
-      <section className="dw-body">
-        <div className="dw-left">
-          <Donut value={isCompleted ? 100 : progress} status={status} />
-        </div>
-
-        <div className="dw-right">
-          <p className="dw-origin">
-            {statusLabels[status]} <span className="dw-origin-domain">• {domain}</span>
-          </p>
-
-          <div className="dw-size-row">
-            {!isCompleted && !isFailed && (
-              <button className="dw-icon-btn" title="Pausar/Retomar" onClick={() => void pauseResume()}>
-                {isActive ? <Pause /> : <Play />}
-              </button>
-            )}
-            {isCompleted && (
-              <button className="dw-icon-btn" title="Copiar destino" onClick={() => copyPath(task.finalPath)}>
-                {copied ? <Check /> : <Copy />}
-              </button>
-            )}
-            <p className="dw-size">
-              {bytes(downloaded)}
-              {!isCompleted && total ? <em> / {bytes(total)}</em> : null}
-            </p>
-          </div>
-
-          {!isCompleted && (
-            <p className="dw-meta">
-              {error ? (
-                <span className="dw-meta-error">
-                  <AlertTriangle size={13} style={{ flexShrink: 0 }} />
-                  <span>{error}</span>
-                </span>
-              ) : isExtracting ? (
-                <span>{extraction || "Descompactando arquivos..."}</span>
-              ) : isAssembling ? (
-                <span>Montando partes do arquivo...</span>
-              ) : isChecking ? (
-                <span>Verificando integridade dos arquivos...</span>
-              ) : (
-                <>
-                  {isActive ? `${bytes(speed)}/s` : "0 B/s"}
-                  <span className="dw-dot">•</span>
-                  {eta(remaining)}
-                </>
-              )}
-            </p>
-          )}
-
-          {!isCompleted && (
-            <div className={`dw-bar${isActive ? " dw-bar--active" : ""}`} role="progressbar" aria-valuenow={Math.round(progress)}>
-              <i style={{ width: `${progress}%` }} />
-            </div>
-          )}
-        </div>
-      </section>
-
-      {!cancelOpen && (
+      {!detailsOpen && !cancelOpen && (
         <>
+          <section className="dw-body">
+            <div className="dw-left">
+              <Donut value={isCompleted ? 100 : progress} status={status} />
+            </div>
+
+            <div className="dw-right">
+              <p className="dw-origin">
+                {statusLabels[status]} <span className="dw-origin-domain">• {domain}</span>
+              </p>
+
+              <div className="dw-size-row">
+                {!isCompleted && !isFailed && (
+                  <button className="dw-icon-btn" title="Pausar/Retomar" onClick={() => void pauseResume()}>
+                    {isActive ? <Pause /> : <Play />}
+                  </button>
+                )}
+                {isCompleted && (
+                  <button className="dw-icon-btn" title="Copiar destino" onClick={() => copyPath(task.finalPath)}>
+                    {copied ? <Check /> : <Copy />}
+                  </button>
+                )}
+                <p className="dw-size">
+                  {bytes(downloaded)}
+                  {!isCompleted && total ? <em> / {bytes(total)}</em> : null}
+                </p>
+              </div>
+
+              {!isCompleted && (
+                <p className="dw-meta">
+                  {error ? (
+                    <span className="dw-meta-error">
+                      <AlertTriangle size={13} style={{ flexShrink: 0 }} />
+                      <span>{error}</span>
+                    </span>
+                  ) : isExtracting ? (
+                    <span>{extraction || "Descompactando arquivos..."}</span>
+                  ) : isAssembling ? (
+                    <span>Montando partes do arquivo...</span>
+                  ) : isChecking ? (
+                    <span>Verificando integridade dos arquivos...</span>
+                  ) : (
+                    <>
+                      {isActive ? `${bytes(speed)}/s` : "0 B/s"}
+                      <span className="dw-dot">•</span>
+                      {eta(remaining)}
+                    </>
+                  )}
+                </p>
+              )}
+
+              {!isCompleted && (
+                <div className={`dw-bar${isActive ? " dw-bar--active" : ""}${status === "paused" ? " dw-bar--paused" : ""}`} role="progressbar" aria-valuenow={Math.round(progress)}>
+                  <i style={{ width: `${progress}%` }} />
+                </div>
+              )}
+            </div>
+          </section>
+
           <div className="dw-divider" />
 
           <footer className="dw-footer">
@@ -444,17 +491,6 @@ export function DownloadWindow({ downloadId }: { downloadId: string }) {
                 <span className="dw-detail-label">Pasta de Destino</span>
                 <span className="dw-detail-val">{destination}</span>
               </div>
-            </div>
-
-            <div className="dw-mini-actions-row">
-              <button className="dw-mini-action-btn" onClick={() => void service.revealInFolder(task.finalPath)}>
-                <FolderOpen size={14} className="icon-blue" />
-                <span>Abrir pasta</span>
-              </button>
-              <button className="dw-mini-action-btn" onClick={() => copyPath(task.originalUrl)}>
-                <Link2 size={14} className="icon-blue" />
-                <span>Copiar URL</span>
-              </button>
             </div>
           </div>
         </div>

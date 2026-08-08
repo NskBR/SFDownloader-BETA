@@ -218,7 +218,9 @@ pub async fn open_progress_window(app: AppHandle, id: String) -> Result<(), Stri
         format!("download-{}", id)
     };
     if let Some(window) = app.get_webview_window(&label) {
-        window.set_focus().map_err(|error| error.to_string())?;
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
         return Ok(());
     }
 
@@ -265,7 +267,9 @@ pub async fn open_progress_window(app: AppHandle, id: String) -> Result<(), Stri
         }
     }
 
-    build_result.map_err(|error| format!("Falha ao abrir progresso: {error}"))?;
+    let window = build_result.map_err(|error| format!("Falha ao abrir progresso: {error}"))?;
+    let _ = window.show();
+    let _ = window.set_focus();
     Ok(())
 }
 
@@ -284,8 +288,9 @@ pub async fn open_torrent_progress_window(
 
     if let Some(window) = app.get_webview_window(&label) {
         println!(
-            "[PROGRESS_WINDOW_OPEN] Janela existente encontrada, executando show() e set_focus()"
+            "[PROGRESS_WINDOW_OPEN] Janela existente encontrada, executando unminimize(), show() e set_focus()"
         );
+        let _ = window.unminimize();
         let _ = window.show();
         let _ = window.set_focus();
         return Ok(());
@@ -327,7 +332,9 @@ pub async fn open_torrent_progress_window(
         }
     }
 
-    build_result.map_err(|error| format!("Falha ao abrir janela de progresso torrent: {error}"))?;
+    let window = build_result.map_err(|error| format!("Falha ao abrir janela de progresso torrent: {error}"))?;
+    let _ = window.show();
+    let _ = window.set_focus();
     Ok(())
 }
 
@@ -335,7 +342,9 @@ pub async fn open_torrent_progress_window(
 pub async fn open_complete_window(app: AppHandle, id: String) -> Result<(), String> {
     let label = format!("download-{}", id);
     if let Some(window) = app.get_webview_window(&label) {
-        window.set_focus().map_err(|error| error.to_string())?;
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
         return Ok(());
     }
 
@@ -375,7 +384,9 @@ pub async fn open_complete_window(app: AppHandle, id: String) -> Result<(), Stri
         }
     }
 
-    build_result.map_err(|error| format!("Falha ao abrir conclusão: {error}"))?;
+    let window = build_result.map_err(|error| format!("Falha ao abrir conclusão: {error}"))?;
+    let _ = window.show();
+    let _ = window.set_focus();
     Ok(())
 }
 
@@ -836,10 +847,43 @@ pub async fn pause_download(
                 );
                 let _ = runtime.pause(&id);
                 return Ok(true);
+            } else {
+                let latest_task = downloads::find(&conn, &id).ok().flatten().unwrap_or(task.clone());
+                let paused_downloaded = latest_task.total_downloaded;
+
+                let _ = downloads::update_progress(
+                    &conn,
+                    &crate::database::models::UpdateDownloadInput {
+                        id: id.clone(),
+                        status: crate::database::models::DownloadStatus::Paused,
+                        total_downloaded: paused_downloaded,
+                        speed_current: 0.0,
+                        speed_average: latest_task.speed_average,
+                        seeds: None,
+                        peers: None,
+                        upload_speed: None,
+                        total_uploaded: None,
+                    },
+                );
+                use tauri::Emitter;
+                let _ = app.emit(
+                    "download-progress",
+                    serde_json::json!({
+                        "id": latest_task.id,
+                        "downloaded": paused_downloaded,
+                        "total": latest_task.file_size,
+                        "speed": 0.0,
+                        "status": "paused",
+                        "error": null
+                    }),
+                );
+                let _ = runtime.pause(&id);
+                return Ok(true);
             }
         }
     }
-    runtime.pause(&id)
+    let _ = runtime.pause(&id);
+    Ok(true)
 }
 
 #[tauri::command]
@@ -1125,9 +1169,7 @@ pub async fn resume_owned(
             }
         }
         if runtime.has(&task.id) {
-            return Err(
-                "A pausa ainda está sendo salva. Tente retomar novamente em um instante.".into(),
-            );
+            runtime.remove(&task.id);
         }
     }
     let _ = open_progress_window(app.clone(), task.id.clone()).await;

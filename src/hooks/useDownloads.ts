@@ -13,7 +13,26 @@ export function useDownloads(settings: AppSettings) {
   useEffect(() => {
     service
       .listDownloads()
-      .then(setDownloads)
+      .then((items) => {
+        setDownloads((current) => {
+          return items.map((item) => {
+            const existing = current.find((c) => c.id === item.id);
+            const latestProg = latest.current.get(item.id);
+            const isActive = ["downloading", "checking_files", "assembling", "extracting", "completed"].includes(item.status);
+            const maxDownloaded = isActive
+              ? Math.max(item.totalDownloaded, existing?.totalDownloaded ?? 0, latestProg?.downloaded ?? 0)
+              : item.totalDownloaded;
+            const maxSpeed = item.status === "downloading" && item.speedCurrent === 0
+              ? Math.max(existing?.speedCurrent ?? 0, latestProg?.speed ?? 0)
+              : item.speedCurrent;
+            return {
+              ...item,
+              totalDownloaded: maxDownloaded,
+              speedCurrent: maxSpeed,
+            };
+          });
+        });
+      })
       .catch(() =>
         setError("Não foi possível carregar os downloads persistidos."),
       )
@@ -26,21 +45,27 @@ export function useDownloads(settings: AppSettings) {
           const previous = items.find((i) => i.id === payload.id);
           const known = items.some((i) => i.id === payload.id);
           const next = known
-            ? items.map((i) =>
-                i.id === payload.id
-                  ? {
-                      ...i,
-                      totalDownloaded: payload.downloaded,
-                      fileSize: payload.total ?? i.fileSize,
-                      speedCurrent: payload.speed,
-                      status: payload.status,
-                      completedAt:
-                        payload.status === "completed"
-                          ? new Date().toISOString()
-                          : i.completedAt,
-                    }
-                  : i,
-              )
+            ? items.map((i) => {
+                if (i.id !== payload.id) return i;
+                const isActive = ["downloading", "checking_files", "assembling", "extracting", "completed"].includes(payload.status);
+                const nextDownloaded = isActive
+                  ? Math.max(i.totalDownloaded, payload.downloaded)
+                  : payload.downloaded;
+                const nextSpeed = payload.status === "downloading" && payload.speed === 0
+                  ? i.speedCurrent
+                  : payload.speed;
+                return {
+                  ...i,
+                  totalDownloaded: nextDownloaded,
+                  fileSize: payload.total ?? i.fileSize,
+                  speedCurrent: nextSpeed,
+                  status: payload.status,
+                  completedAt:
+                    payload.status === "completed"
+                      ? new Date().toISOString()
+                      : i.completedAt,
+                };
+              })
             : items;
           if (
             payload.status === "completed" &&

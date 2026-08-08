@@ -3,6 +3,7 @@ dist/
 target/
 src-tauri/target/
 *.log
+scratch/
 
 # Executaveis e instaladores locais de release
 release/

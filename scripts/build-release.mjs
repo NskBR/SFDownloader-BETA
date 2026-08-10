@@ -21,26 +21,16 @@ try {
   // 1. Executar Tauri Build
   execSync("npx tauri build", { cwd: rootDir, stdio: "inherit" });
 
-  // 2. Limpar e recriar a pasta release/ para conter apenas os arquivos da versão atual
+  // 2. Limpar e recriar a pasta release/
   if (fs.existsSync(releaseDir)) {
     fs.rmSync(releaseDir, { recursive: true, force: true });
   }
   fs.mkdirSync(releaseDir, { recursive: true });
 
-  console.log(`\n📦 Copiando arquivos gerados da versão v${currentVersion} para a pasta release/...`);
-
-  const copiedFiles = [];
-
-  // Copiar o executável standalone SFDownloader.exe se existir
-  const mainExe = path.join(tauriTargetDir, "SFDownloader.exe");
-  if (fs.existsSync(mainExe)) {
-    const destExe = path.join(releaseDir, "SFDownloader.exe");
-    fs.copyFileSync(mainExe, destExe);
-    copiedFiles.push(destExe);
-  }
-
-  // Procurar por instaladores da versão atual na pasta bundle/
   const bundleDir = path.join(tauriTargetDir, "bundle");
+  const allInstallerFiles = [];
+
+  // Coletar todos os instaladores gerados na pasta bundle/
   if (fs.existsSync(bundleDir)) {
     const searchFolderRecursive = (dir) => {
       const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -50,13 +40,15 @@ try {
           searchFolderRecursive(fullPath);
         } else if (entry.isFile()) {
           const ext = path.extname(entry.name).toLowerCase();
-          if (
-            (ext === ".exe" || ext === ".msi" || ext === ".zip") &&
-            entry.name.includes(currentVersion)
-          ) {
-            const destPath = path.join(releaseDir, entry.name);
-            fs.copyFileSync(fullPath, destPath);
-            copiedFiles.push(destPath);
+          if (ext === ".exe" || ext === ".msi" || ext === ".zip") {
+            const versionMatch = entry.name.match(/(\d+\.\d+\.\d+)/);
+            if (versionMatch) {
+              allInstallerFiles.push({
+                name: entry.name,
+                fullPath,
+                version: versionMatch[1],
+              });
+            }
           }
         }
       }
@@ -64,12 +56,55 @@ try {
     searchFolderRecursive(bundleDir);
   }
 
+  // Extrair e ordenar semver
+  const parseVersion = (v) => v.split(".").map((n) => parseInt(n, 10) || 0);
+  const uniqueVersions = [...new Set(allInstallerFiles.map((f) => f.version))].sort((a, b) => {
+    const pa = parseVersion(a);
+    const pb = parseVersion(b);
+    if (pa[0] !== pb[0]) return pa[0] - pb[0];
+    if (pa[1] !== pb[1]) return pa[1] - pb[1];
+    return pa[2] - pb[2];
+  });
+
+  // Garantir que a versão atual (currentVersion) está na lista
+  if (!uniqueVersions.includes(currentVersion)) {
+    uniqueVersions.push(currentVersion);
+  }
+
+  // Selecionar apenas a última versão (atual) e a penúltima
+  const latestVersion = uniqueVersions[uniqueVersions.length - 1];
+  const penultimateVersion = uniqueVersions.length > 1 ? uniqueVersions[uniqueVersions.length - 2] : null;
+
+  const allowedVersions = new Set([latestVersion, penultimateVersion].filter(Boolean));
+
+  console.log(`\n📦 Organizando pasta release/...`);
+  console.log(`📌 Mantendo apenas versão atual (v${latestVersion})${penultimateVersion ? ` e penúltima versão (v${penultimateVersion})` : ""}`);
+
+  const copiedFiles = [];
+
+  // Copiar o executável standalone principal (SFDownloader.exe) se existir
+  const mainExe = path.join(tauriTargetDir, "SFDownloader.exe");
+  if (fs.existsSync(mainExe)) {
+    const destExe = path.join(releaseDir, "SFDownloader.exe");
+    fs.copyFileSync(mainExe, destExe);
+    copiedFiles.push(destExe);
+  }
+
+  // Copiar instaladores da versão atual e da penúltima
+  for (const file of allInstallerFiles) {
+    if (allowedVersions.has(file.version)) {
+      const destPath = path.join(releaseDir, file.name);
+      fs.copyFileSync(file.fullPath, destPath);
+      copiedFiles.push(destPath);
+    }
+  }
+
   console.log("==================================================");
-  console.log(`✅ Build da versão v${currentVersion} concluído com sucesso!`);
+  console.log(`✅ Processo de release concluído com sucesso!`);
   console.log(`📁 Arquivos copiados para /release:\n`);
   copiedFiles.forEach((file) => console.log(`   👉 ${path.basename(file)}`));
   console.log("==================================================");
 } catch (error) {
-  console.error("\n❌ Erro durante o processo de build:", error);
+  console.error("\n❌ Erro durante o processo de release:", error);
   process.exit(1);
 }

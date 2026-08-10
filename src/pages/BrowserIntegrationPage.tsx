@@ -9,6 +9,8 @@ import {
   Puzzle,
   Flame,
   Package,
+  ExternalLink,
+  FolderOpen,
 } from "lucide-react";
 import * as service from "../services/downloadService";
 
@@ -121,21 +123,36 @@ export function BrowserIntegrationPage() {
               <div className="integr-drop-icon">
                 <Package size={26} />
               </div>
-              <strong>{xpiFileName} (Arraste)</strong>
+              <strong>{xpiFileName} (Arraste ou Clique)</strong>
               <span>
-                Segure e solte esta peça na página de extensões do seu navegador Firefox para instalar.
+                Segure e solte esta peça no Firefox ou clique no botão abaixo para abrir a instalação diretamente.
               </span>
+            </div>
+
+            <div className="integr-actions">
+              <button className="primary-button" onClick={openXpi} title="Abrir o arquivo XPI com o Firefox">
+                <ExternalLink size={15} />
+                Abrir no Firefox
+              </button>
+              <button
+                className="secondary-button"
+                onClick={() => firefoxFolder && void service.revealInFolder(`${firefoxFolder}/${xpiFileName}`)}
+                title="Mostrar arquivo XPI no Explorer"
+              >
+                <FolderOpen size={15} />
+                Abrir pasta no Explorer
+              </button>
             </div>
 
             <ol className="integr-steps">
               <li>
-                Clique no card acima para abrir o instalador no Firefox, ou arraste-o direto para o navegador.
+                Clique no botão <strong>“Abrir no Firefox”</strong> acima para iniciar a instalação no navegador.
               </li>
               <li>
-                Ou <button className="integr-link-btn" onClick={() => firefoxFolder && void service.revealInFolder(`${firefoxFolder}/${xpiFileName}`)}>abrir pasta no Explorer</button> para selecionar em <code>about:addons</code>.
+                Ou arraste o card acima para qualquer aba do seu navegador Firefox.
               </li>
               <li>
-                Para testes em desenvolvimento: <code>about:debugging#/runtime/this-firefox</code>.
+                Confirme a instalação clicando em <strong>“Continuar com a instalação”</strong> e <strong>“Adicionar”</strong>.
               </li>
             </ol>
           </div>

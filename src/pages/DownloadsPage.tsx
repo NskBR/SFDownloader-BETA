@@ -18,6 +18,8 @@ import {
   Activity,
   Zap,
   ArrowDown,
+  CheckSquare,
+  Square,
 } from "lucide-react";
 import {
   useCallback,
@@ -74,12 +76,34 @@ const labels: Record<string, string> = {
 };
 
 
+import { categoryForFile, cleanExtension } from "../domain/categories";
+
 const groups: Record<string, string[]> = {
-  documents: ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "csv"],
-  music: ["mp3", "wav", "flac", "ogg", "m4a", "aac"],
-  videos: ["mp4", "mkv", "mov", "avi", "webm"],
-  archives: ["zip", "rar", "7z", "tar", "gz"],
-  applications: ["exe", "msi", "apk", "bat", "appimage", "dmg", "pkg"],
+  documents: ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "csv", "rtf", "odt", "epub"],
+  music: ["mp3", "wav", "flac", "ogg", "m4a", "aac", "wma", "opus", "alac"],
+  videos: ["mp4", "mkv", "mov", "avi", "webm", "flv", "wmv", "m4v", "3gp", "ts"],
+  archives: ["zip", "rar", "7z", "tar", "gz", "tgz", "bz2", "xz", "cab", "img", "dmg", "z01", "z02", "r00", "r01", "001"],
+  applications: [
+    "exe",
+    "msi",
+    "apk",
+    "bat",
+    "cmd",
+    "ps1",
+    "appimage",
+    "deb",
+    "rpm",
+    "run",
+    "bin",
+    "jar",
+    "vbs",
+    "wsf",
+    "com",
+    "gadget",
+    "sh",
+    "command",
+    "app",
+  ],
 };
 
 type SortKey = "status" | "size" | "date";
@@ -165,7 +189,24 @@ export function DownloadsPage({
 
   const runMenuAction = (action: string, item: DownloadTask) => {
     setCtxMenu(null);
-    handleMenuAction(action, item.id);
+    if (selected.size > 1 && selected.has(item.id)) {
+      const selectedIds = Array.from(selected);
+      switch (action) {
+        case "pause": selectedIds.forEach(id => pause(id)); break;
+        case "resume": selectedIds.forEach(id => resume(id)); break;
+        case "cancel": selectedIds.forEach(id => cancel(id)); break;
+        case "delete":
+          if (window.confirm(`Tem certeza que deseja excluir os ${selectedIds.length} downloads selecionados?`)) {
+            remove(selectedIds);
+            setSelected(new Set());
+          }
+          break;
+        case "folder": if (item) service.revealInFolder(item.finalPath); break;
+        case "open": if (item) service.openFile(item.finalPath); break;
+      }
+    } else {
+      handleMenuAction(action, item.id);
+    }
   };
 
   useEffect(() => {
@@ -234,14 +275,28 @@ export function DownloadsPage({
     .filter((item) => {
       if (filter === "active" && !["pending", "checking_files", "downloading", "paused", "assembling", "extracting", "failed"].includes(item.status)) return false;
       if (filter === "completed" && item.status !== "completed") return false;
+      const ext =
+        cleanExtension(item.fileName) ||
+        (item.extension ? item.extension.toLowerCase().trim() : "") ||
+        cleanExtension(item.finalPath) ||
+        cleanExtension(item.originalUrl);
       if (filter === "torrents") {
-        if (item.downloadType !== "torrent" && !item.originalUrl.startsWith("magnet:") && item.extension?.toLowerCase() !== "torrent") return false;
+        if (item.downloadType !== "torrent" && !item.originalUrl.startsWith("magnet:") && ext !== "torrent") return false;
       } else if (filter === "calculator") {
         const allKnown = Object.values(groups).flat();
-        if (allKnown.includes(item.extension?.toLowerCase() ?? "")) return false;
-      } else {
+        const cat = categoryForFile(item.fileName, settings.customCategories, item.finalPath, item.originalUrl);
+        if (allKnown.includes(ext) || cat !== "Outros") return false;
+      } else if (filter in groups) {
         const extensions = groups[filter];
-        if (extensions && !extensions.includes(item.extension?.toLowerCase() ?? "")) return false;
+        const catName = categoryForFile(item.fileName, settings.customCategories, item.finalPath, item.originalUrl);
+        const matchesCategoryName =
+          (filter === "archives" && catName === "Compactados") ||
+          (filter === "videos" && catName === "Vídeos") ||
+          (filter === "music" && catName === "Áudios") ||
+          (filter === "documents" && catName === "Documentos") ||
+          (filter === "applications" && catName === "Aplicativos");
+
+        if (!matchesCategoryName && !extensions.includes(ext)) return false;
       }
       return item.fileName.toLowerCase().includes(search.toLowerCase());
     })
@@ -265,6 +320,50 @@ export function DownloadsPage({
     { key: "size", label: "Tamanho" },
     { key: "date", label: "Data" },
   ];
+
+  const selectAll = useCallback(() => {
+    setSelected(new Set(visible.map((item) => item.id)));
+  }, [visible]);
+
+  const deselectAll = useCallback(() => {
+    setSelected(new Set());
+  }, []);
+
+  const pauseSelected = useCallback(() => {
+    selected.forEach((id) => pause(id));
+  }, [selected, pause]);
+
+  const resumeSelected = useCallback(() => {
+    selected.forEach((id) => resume(id));
+  }, [selected, resume]);
+
+  const deleteSelected = useCallback(() => {
+    const ids = Array.from(selected);
+    if (ids.length === 0) return;
+    if (window.confirm(`Tem certeza que deseja excluir os ${ids.length} downloads selecionados?`)) {
+      remove(ids);
+      setSelected(new Set());
+    }
+  }, [selected, remove]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
+        e.preventDefault();
+        selectAll();
+      } else if (e.key === "Escape") {
+        deselectAll();
+      } else if (e.key === "Delete") {
+        deleteSelected();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectAll, deselectAll, deleteSelected]);
 
   const changeSort = (key: SortKey) => {
     setSort((current) => {
@@ -452,22 +551,29 @@ export function DownloadsPage({
   const statusClass = isDownloading ? "downloading"
     : isPaused ? "paused"
     : isCompleted ? "completed"
-    : isFailed ? "failed"
+    : item.status === "cancelled" ? "cancelled"
+    : item.status === "failed" ? "failed"
     : "waiting";
-  const statusLabel = isDownloading ? "Baixando"
-    : isPaused ? "Pausado"
-    : isCompleted ? "Concluído"
-    : isFailed ? (item.status === "cancelled" ? "Cancelado" : "Falhou")
-    : "Na fila";
+  const statusLabel = isDownloading ? "BAIXANDO"
+    : isPaused ? "PAUSADO"
+    : isCompleted ? "CONCLUÍDO"
+    : item.status === "cancelled" ? "CANCELADO"
+    : item.status === "failed" ? "FALHOU"
+    : "NA FILA";
+
+              const isSelected = selected.has(item.id);
+              const isMultiSelected = isSelected && selected.size > 1;
+              const isSingleSelected = isSelected && selected.size === 1;
 
               return (
                 <article
                   key={item.id}
-                  className={`download-card status-${statusClass} ${selected.has(item.id) ? "selected" : ""}`}
+                  className={`download-card status-${statusClass} ${isSelected ? "selected" : ""} ${isMultiSelected ? "selected-multi" : ""} ${isSingleSelected ? "selected-single" : ""}`}
                   onClick={(event) => handleSelect(item.id, event)}
                   onDoubleClick={() => openDetails(item.id, item.status)}
                   onContextMenu={(event) => handleContextMenu(event, item)}
                 >
+
                   {/* Left Column: Status Indicator */}
                   <div className="card-indicator-col">
                     {(isDownloading || isPaused || isFailed) && progress > 0 ? (

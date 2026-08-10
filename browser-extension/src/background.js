@@ -56,8 +56,32 @@ function saveBridgeToStorage() {
   chrome.storage.local.set({
     connected: bridge.connected,
     fileExts: bridge.fileExts || [],
-    blockedHosts: bridge.blockedHosts || []
+    blockedHosts: bridge.blockedHosts || [],
+    themeAccent: bridge.themeAccent || null,
+    themeBg: bridge.themeBg || null
   });
+}
+
+function updateExtensionIcon(connected) {
+  const actionAPI = chrome.action || chrome.browserAction;
+  if (!actionAPI) return;
+
+  const iconPath = connected
+    ? { 32: "icons/sf-small.png", 128: "icons/sf-large.png" }
+    : { 32: "icons/sf-small-off.png", 128: "icons/sf-large-off.png" };
+
+  const title = connected
+    ? "SF Downloader (Conectado)"
+    : "SF Downloader (Desconectado / App Fechado)";
+
+  try {
+    if (typeof actionAPI.setIcon === "function") {
+      actionAPI.setIcon({ path: iconPath }).catch(() => {});
+    }
+    if (typeof actionAPI.setTitle === "function") {
+      actionAPI.setTitle({ title }).catch(() => {});
+    }
+  } catch {}
 }
 
 let syncPromise = null;
@@ -74,6 +98,7 @@ function syncBridge() {
       }
       bridge.connected = false;
       saveBridgeToStorage();
+      updateExtensionIcon(false);
       return;
     }
 
@@ -84,13 +109,17 @@ function syncBridge() {
       bridge = {
         connected: true,
         ...data,
+        themeAccent: data.themeAccent || null,
+        themeBg: data.themeBg || null,
         allFileExts: (data.fileExts || []).map(normalizeExtension).filter(Boolean),
         fileExts: applyExtensionFilters(data.fileExts, disabledExtensionsState)
       };
       saveBridgeToStorage();
+      updateExtensionIcon(true);
     } catch {
       bridge.connected = false;
       saveBridgeToStorage();
+      updateExtensionIcon(false);
     }
   })().finally(() => {
     syncPromise = null;
@@ -103,13 +132,33 @@ function launchProtocol(url) {
     .then(tab => { if (tab.id) setTimeout(() => chrome.tabs.remove(tab.id).catch(() => undefined), 1200); });
 }
 
+function isExtensionExcluded(ext) {
+  if (!ext) return false;
+  const norm = normalizeExtension(ext);
+  const disabled = (disabledExtensionsState || []).map(normalizeExtension);
+  return disabled.includes(norm);
+}
+
 function shouldTakeOver(url, filename) {
   if (!bridge.connected || !validUrl(url)) return false;
   if (url.startsWith("magnet:")) return true;
   const parsed = new URL(url);
   if ((bridge.blockedHosts || []).some(host => parsed.host.includes(host))) return false;
+
   const target = (filename || parsed.pathname).toUpperCase();
-  return (bridge.fileExts || []).some(ext => target.endsWith(ext));
+  // Strip query parameters
+  const cleanTarget = target.split("?")[0].split("#")[0];
+  const ext = cleanTarget.includes(".") ? cleanTarget.substring(cleanTarget.lastIndexOf(".") + 1) : "";
+  if (!ext) return false;
+
+  // Block web page extensions
+  if (["HTML", "HTM", "PHP", "ASP", "ASPX", "JSP"].includes(ext)) return false;
+
+  // Check user exclusion list
+  if (isExtensionExcluded(ext)) return false;
+
+  // Accept all other file extensions
+  return true;
 }
 
 function shouldInterceptHeaders(info) {
@@ -138,23 +187,22 @@ function shouldInterceptHeaders(info) {
     const name = header.name.toLowerCase();
     const value = header.value || "";
     if (name === "content-disposition") {
-      // Extract filename from Content-Disposition (same as XDM's getAttachedFile)
+      // Extract filename from Content-Disposition
       const parts = value.split(";");
       for (const part of parts) {
         const trimmed = part.trim();
         if (trimmed.toLowerCase().startsWith("filename*=")) {
           const encoded = trimmed.substring(10).trim().replace(/^['"]|['"]$/g, "");
-          const value = encoded.includes("''") ? encoded.split("''").slice(1).join("''") : encoded;
+          const val = encoded.includes("''") ? encoded.split("''").slice(1).join("''") : encoded;
           try {
-            filename = decodeURIComponent(value);
+            filename = decodeURIComponent(val);
           } catch {
-            filename = value;
+            filename = val;
           }
         } else if (trimmed.toLowerCase().startsWith("filename=")) {
           filename = trimmed.substring(9).replace(/['"]/g, "").trim();
         }
       }
-      // A forced download (XDM takes these over regardless of resource type)
       isAttachment = /attachment/i.test(value);
     }
     if (name === "content-type") {
@@ -165,48 +213,41 @@ function shouldInterceptHeaders(info) {
     }
   }
 
-  // === XDM approach: only intercept real downloads ===
-  // A passive prefetch (e.g. YouTube thumbnail on hover, lazy <img>, media preview)
-  // is fetched as an `image`/`media`/subresource type with NO Content-Disposition
-  // attachment. Those must NOT be taken over, or the browser spawns fake downloads.
-  // We only intercept when it is a user navigation (main_frame/sub_frame) OR a
-  // forced download (Content-Disposition: attachment).
-  const isNavigation = info.type === "main_frame" || info.type === "sub_frame";
-  if (!isNavigation && !isAttachment) return null;
-
-  // === XDM's isHtmlOrScript: block web content MIME types ===
-  // (XDM blockedMimeList: text/javascript, application/javascript, text/css, text/html)
-  // We extend this with more web types for extra safety
+  // Block web content MIME types
   const blockedMimeList = [
     "text/html", "application/xhtml+xml",
     "text/javascript", "application/javascript",
     "text/css",
-    "application/json",  // Google APIs send JSON with attachment headers
-    "text/xml", "application/xml",
-    "text/plain"
+    "application/json",
+    "text/xml", "application/xml"
   ];
   if (mimeType && blockedMimeList.some(blocked => mimeType.includes(blocked))) {
     return null;
   }
 
-  // === XDM's core logic: get filename, then check extension against fileExts ===
-  // If no filename from Content-Disposition, extract from URL path (XDM's getFileFromUrl)
-  if (!filename) {
-    filename = parsed.pathname.split("/").pop() || null;
-  }
-
-  // Get file extension (XDM's getFileExtension)
-  const ext = filename ? filename.substring(filename.lastIndexOf(".") + 1).toUpperCase() : null;
-
-  // CRITICAL: XDM ALWAYS requires the extension to be in fileExts.
-  // If extension doesn't match (e.g. ".txt", ".json"), it is NOT intercepted.
-  if (ext && ext !== filename?.toUpperCase()) { // has a real extension (not just the filename itself)
-    if ((bridge.fileExts || []).some(allowed => allowed === "." + ext || allowed === ext)) {
-      return { filename, fileSize, mimeType };
+  // Extract extension from filename or URL path
+  let ext = null;
+  if (filename && filename.includes(".")) {
+    ext = filename.substring(filename.lastIndexOf(".") + 1).toUpperCase();
+  } else {
+    const pathFile = parsed.pathname.split("/").pop()?.split("?")[0] || "";
+    if (pathFile.includes(".")) {
+      ext = pathFile.substring(pathFile.lastIndexOf(".") + 1).toUpperCase();
     }
   }
 
-  // Extension not in whitelist — do NOT intercept
+  if (ext) {
+    if (["HTML", "HTM", "PHP", "ASP", "ASPX", "JSP"].includes(ext)) return null;
+    if (isExtensionExcluded(ext)) return null;
+    return { filename, fileSize, mimeType };
+  }
+
+  // Forced attachment download without explicit extension
+  const isNavigation = info.type === "main_frame" || info.type === "sub_frame";
+  if (isAttachment || isNavigation) {
+    return { filename, fileSize, mimeType };
+  }
+
   return null;
 }
 
@@ -406,6 +447,7 @@ chrome.storage?.onChanged?.addListener((changes, areaName) => {
 });
 chrome.alarms.create("sf-bridge-sync", { periodInMinutes: 1 });
 chrome.alarms.onAlarm.addListener(alarm => { if (alarm.name === "sf-bridge-sync") void syncBridge(); });
+setInterval(() => void syncBridge(), 5000);
 
 const determiningFilename = chrome.downloads?.["onDeterminingFilename"];
 if (determiningFilename) {

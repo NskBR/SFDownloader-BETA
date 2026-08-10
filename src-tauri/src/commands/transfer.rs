@@ -390,6 +390,76 @@ pub async fn open_complete_window(app: AppHandle, id: String) -> Result<(), Stri
     Ok(())
 }
 
+fn url_decode(input: &str) -> String {
+    let mut bytes = Vec::new();
+    let input_bytes = input.as_bytes();
+    let mut i = 0;
+    while i < input_bytes.len() {
+        if input_bytes[i] == b'%' && i + 2 < input_bytes.len() {
+            if let Ok(b) = u8::from_str_radix(std::str::from_utf8(&input_bytes[i + 1..i + 3]).unwrap_or(""), 16) {
+                bytes.push(b);
+                i += 3;
+                continue;
+            }
+        }
+        if input_bytes[i] == b'+' {
+            bytes.push(b' ');
+        } else {
+            bytes.push(input_bytes[i]);
+        }
+        i += 1;
+    }
+    String::from_utf8_lossy(&bytes).into_owned()
+}
+
+fn parse_filename_from_content_disposition(header_val: &str) -> Option<String> {
+    for part in header_val.split(';') {
+        let trimmed = part.trim();
+        if let Some(rest) = trimmed.strip_prefix("filename*=") {
+            let clean = rest.trim_matches(['"', '\'']);
+            let encoded = if let Some((_, val)) = clean.split_once("''") {
+                val
+            } else {
+                clean
+            };
+            let decoded = url_decode(encoded);
+            let trimmed_name = decoded.trim();
+            if !trimmed_name.is_empty() {
+                return Some(trimmed_name.to_string());
+            }
+        }
+    }
+    for part in header_val.split(';') {
+        let trimmed = part.trim();
+        if let Some(rest) = trimmed.strip_prefix("filename=") {
+            let clean = rest.trim_matches(['"', '\'']);
+            let trimmed_name = clean.trim();
+            if !trimmed_name.is_empty() {
+                return Some(trimmed_name.to_string());
+            }
+        }
+    }
+    None
+}
+
+fn extract_filename_from_url_path(url: &Url) -> Option<String> {
+    let segments: Vec<&str> = url.path_segments()?.filter(|s| !s.is_empty()).collect();
+    for segment in segments.into_iter().rev() {
+        let clean = segment.split('?').next().unwrap_or(segment);
+        let decoded = url_decode(clean);
+        let trimmed = decoded.trim().to_string();
+        let lower = trimmed.to_lowercase();
+        
+        if lower == "download" || lower == "resolve" || lower == "main" || lower == "master" || lower == "raw" || lower == "blob" || lower == "files" {
+            continue;
+        }
+        if trimmed.contains('.') && !trimmed.ends_with('.') {
+            return Some(trimmed);
+        }
+    }
+    None
+}
+
 #[tauri::command]
 pub async fn inspect_download(url: String) -> Result<DownloadPreview, String> {
     if url.starts_with("magnet:") || url.to_lowercase().ends_with(".torrent") {
@@ -424,9 +494,23 @@ pub async fn inspect_download(url: String) -> Result<DownloadPreview, String> {
         .redirect(reqwest::redirect::Policy::limited(10))
         .build()
         .map_err(|e| e.to_string())?;
-    // Some download hosts close HEAD connections without a TLS close_notify
-    // (ash-speed.hetzner.com is one example). In that case, probe one byte with
-    // GET instead. Besides being more compatible, this also proves Range support.
+
+    // First, try a no-redirect HEAD to capture intermediate headers like X-Linked-Size
+    let no_redirect_client = reqwest::Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let mut linked_size: Option<u64> = None;
+    if let Ok(pre) = no_redirect_client.head(parsed.clone()).send().await {
+        linked_size = pre
+            .headers()
+            .get("x-linked-size")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.parse().ok());
+    }
+
     let head_result = client.head(parsed.clone()).send().await;
     let partial_request = || {
         client
@@ -460,24 +544,36 @@ pub async fn inspect_download(url: String) -> Result<DownloadPreview, String> {
         .headers()
         .get(header::CONTENT_DISPOSITION)
         .and_then(|v| v.to_str().ok())
-        .and_then(|v| {
-            v.split(';')
-                .find_map(|p| p.trim().strip_prefix("filename="))
-                .map(|n| n.trim_matches(['\"', '\'']).to_string())
-        })
-        .or_else(|| {
-            parsed
-                .path_segments()
-                .and_then(|mut p| p.next_back())
-                .filter(|n| !n.is_empty())
-                .map(str::to_owned)
-        })
+        .and_then(parse_filename_from_content_disposition)
+        .or_else(|| extract_filename_from_url_path(response.url()))
+        .or_else(|| extract_filename_from_url_path(&parsed))
         .unwrap_or_else(|| "download.bin".into());
     let extension = Path::new(&file_name)
         .extension()
         .and_then(|v| v.to_str())
         .map(|v| v.to_lowercase());
-    let file_size = response_size(&response);
+    let mut file_size = response_size(&response);
+
+    // Use X-Linked-Size from redirect as fallback
+    if file_size.unwrap_or(0) <= 1 {
+        if let Some(ls) = linked_size {
+            file_size = Some(ls);
+        }
+    }
+
+    // Final fallback: HEAD on the final URL directly
+    if file_size.unwrap_or(0) <= 1 {
+        if let Ok(final_head) = client.head(response.url().clone()).send().await {
+            if final_head.status().is_success() {
+                if let Some(sz) = response_size(&final_head) {
+                    if sz > 1 {
+                        file_size = Some(sz);
+                    }
+                }
+            }
+        }
+    }
+
     Ok(DownloadPreview {
         url,
         file_name,
@@ -502,6 +598,13 @@ fn response_size(response: &reqwest::Response) -> Option<u64> {
         .and_then(|value| value.to_str().ok())
         .and_then(content_range_total)
         .or_else(|| response.content_length())
+        .or_else(|| {
+            response
+                .headers()
+                .get("x-linked-size")
+                .and_then(|value| value.to_str().ok())
+                .and_then(|value| value.parse().ok())
+        })
 }
 
 #[tauri::command]
@@ -575,7 +678,19 @@ pub async fn start_download(
     let taken_paths = {
         let connection = database.connect()?;
         downloads::list(&connection)
-            .map(|list| list.into_iter().map(|t| t.final_path).collect::<Vec<_>>())
+            .map(|list| {
+                list.into_iter()
+                    .filter(|t| {
+                        // Exclude cancelled and failed downloads from taken paths
+                        !matches!(
+                            t.status,
+                            crate::database::models::DownloadStatus::Cancelled
+                                | crate::database::models::DownloadStatus::Failed
+                        )
+                    })
+                    .map(|t| t.final_path)
+                    .collect::<Vec<_>>()
+            })
             .unwrap_or_default()
     };
     let prepared = engine::prepare_with_headers(
@@ -716,12 +831,42 @@ pub async fn cancel_download(
     }
 
     let observed_downloaded = task.total_downloaded.max(0);
+    let mut updated_temp_path = task.temp_path.clone();
     if delete_files {
         let _ = std::fs::remove_file(&task.temp_path);
         let _ = std::fs::remove_file(&task.final_path);
         if let Ok(plan) = crate::database::repositories::chunks::list(&connection, &task.id) {
             for chunk in plan {
                 let _ = std::fs::remove_file(format!("{}.chunk-{}", task.temp_path, chunk.index));
+            }
+        }
+    } else {
+        // Move .part to .sf-temp/cancelados/ so it doesn't pollute active namespace
+        let temp_path = std::path::Path::new(&task.temp_path);
+        if temp_path.exists() {
+            if let Some(temp_parent) = temp_path.parent() {
+                let cancelados_dir = temp_parent.join("cancelados");
+                let _ = std::fs::create_dir_all(&cancelados_dir);
+                if let Some(file_name) = temp_path.file_name() {
+                    let dest = cancelados_dir.join(file_name);
+                    if std::fs::rename(temp_path, &dest).is_ok() {
+                        updated_temp_path = dest.to_string_lossy().into_owned();
+                    }
+                }
+            }
+        }
+        // Also move chunk files
+        if let Ok(plan) = crate::database::repositories::chunks::list(&connection, &task.id) {
+            let temp_path = std::path::Path::new(&task.temp_path);
+            if let Some(temp_parent) = temp_path.parent() {
+                let cancelados_dir = temp_parent.join("cancelados");
+                for chunk in plan {
+                    let chunk_name = format!("{}.chunk-{}", temp_path.file_name().unwrap_or_default().to_string_lossy(), chunk.index);
+                    let src = temp_parent.join(&chunk_name);
+                    if src.exists() {
+                        let _ = std::fs::rename(&src, cancelados_dir.join(&chunk_name));
+                    }
+                }
             }
         }
     }
@@ -745,6 +890,11 @@ pub async fn cancel_download(
         },
     )
     .map_err(|error| format!("Falha ao cancelar o download: {error}"))?;
+
+    // Update temp_path in DB if we moved the .part to cancelados/
+    if !delete_files && updated_temp_path != task.temp_path {
+        let _ = downloads::update_temp_path(&connection, &id, &updated_temp_path);
+    }
 
     if observed_downloaded > 0 {
         let mut connection = database.connect()?;
@@ -1173,6 +1323,49 @@ pub async fn resume_owned(
         }
     }
     let _ = open_progress_window(app.clone(), task.id.clone()).await;
+
+    // If the temp file is in cancelados/, move it back to the active .sf-temp/
+    let task = {
+        let temp_path = std::path::Path::new(&task.temp_path);
+        if let Some(parent) = temp_path.parent() {
+            if parent.file_name().and_then(|n| n.to_str()) == Some("cancelados") {
+                if let Some(sf_temp) = parent.parent() {
+                    let active_path = sf_temp.join(temp_path.file_name().unwrap_or_default());
+                    if temp_path.exists() {
+                        if let Ok(()) = std::fs::rename(temp_path, &active_path) {
+                            let connection = database.connect()?;
+                            let new_temp = active_path.to_string_lossy().into_owned();
+                            let _ = downloads::update_temp_path(&connection, &task.id, &new_temp);
+                            // Also move chunk files back
+                            if let Ok(plan) = crate::database::repositories::chunks::list(&connection, &task.id) {
+                                for chunk in &plan {
+                                    let chunk_name = format!("{}.chunk-{}", temp_path.file_name().unwrap_or_default().to_string_lossy(), chunk.index);
+                                    let src = parent.join(&chunk_name);
+                                    if src.exists() {
+                                        let _ = std::fs::rename(&src, sf_temp.join(&chunk_name));
+                                    }
+                                }
+                            }
+                            let mut updated = task;
+                            updated.temp_path = new_temp;
+                            updated
+                        } else {
+                            task
+                        }
+                    } else {
+                        task
+                    }
+                } else {
+                    task
+                }
+            } else {
+                task
+            }
+        } else {
+            task
+        }
+    };
+
     let mut saved_headers = browser_bridge.load_headers(&task.id);
     saved_headers.remove(header::HOST);
     saved_headers.remove(header::CONTENT_LENGTH);
@@ -1375,6 +1568,8 @@ pub fn get_extension_dir(app: AppHandle, browser: String) -> Result<String, Stri
             "popup.js",
             "icons/sf-small.png",
             "icons/sf-large.png",
+            "icons/sf-small-off.png",
+            "icons/sf-large-off.png",
         ];
         for file in files {
             let src_file = project_dist.join(file);
@@ -1407,6 +1602,12 @@ pub fn get_extension_dir(app: AppHandle, browser: String) -> Result<String, Stri
                     "icons/sf-large.png" => include_bytes!(
                         "../../../browser-extension/dist/chromium/icons/sf-large.png"
                     ),
+                    "icons/sf-small-off.png" => include_bytes!(
+                        "../../../browser-extension/dist/chromium/icons/sf-small-off.png"
+                    ),
+                    "icons/sf-large-off.png" => include_bytes!(
+                        "../../../browser-extension/dist/chromium/icons/sf-large-off.png"
+                    ),
                     _ => &[],
                 };
                 if !embedded_bytes.is_empty() {
@@ -1424,6 +1625,8 @@ pub fn get_extension_dir(app: AppHandle, browser: String) -> Result<String, Stri
             "popup.js",
             "icons/sf-small.png",
             "icons/sf-large.png",
+            "icons/sf-small-off.png",
+            "icons/sf-large-off.png",
         ];
         for file in files {
             let src_file = project_dist.join(file);
@@ -1455,6 +1658,12 @@ pub fn get_extension_dir(app: AppHandle, browser: String) -> Result<String, Stri
                     }
                     "icons/sf-large.png" => {
                         include_bytes!("../../../browser-extension/dist/firefox/icons/sf-large.png")
+                    }
+                    "icons/sf-small-off.png" => {
+                        include_bytes!("../../../browser-extension/dist/firefox/icons/sf-small-off.png")
+                    }
+                    "icons/sf-large-off.png" => {
+                        include_bytes!("../../../browser-extension/dist/firefox/icons/sf-large-off.png")
                     }
                     _ => &[],
                 };

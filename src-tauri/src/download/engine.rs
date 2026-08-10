@@ -224,20 +224,20 @@ pub async fn prepare_with_headers(
             response.status()
         ));
     }
-    let file_name = safe_file_name(
-        response
+    let file_name = safe_file_name({
+        let disposition_name = response
             .headers()
             .get(header::CONTENT_DISPOSITION)
             .and_then(|value| value.to_str().ok())
-            .and_then(file_name_from_disposition)
-            .or_else(|| {
-                parsed
-                    .path_segments()
-                    .and_then(|mut parts| parts.next_back())
-                    .filter(|name| !name.is_empty())
-            })
-            .unwrap_or("download.bin"),
-    );
+            .and_then(parse_filename_from_content_disposition);
+        if let Some(name) = disposition_name {
+            name
+        } else {
+            extract_filename_from_url_path(response.url())
+                .or_else(|| extract_filename_from_url_path(&parsed))
+                .unwrap_or_else(|| "download.bin".into())
+        }
+    });
     let extension = Path::new(&file_name)
         .extension()
         .and_then(|value| value.to_str())
@@ -1473,14 +1473,86 @@ fn record_history(
     }
 }
 
-fn file_name_from_disposition(value: &str) -> Option<&str> {
-    value
-        .split(';')
-        .find_map(|part| part.trim().strip_prefix("filename="))
-        .map(|name| name.trim_matches(['\"', '\'']))
+fn url_decode_engine(input: &str) -> String {
+    let mut bytes = Vec::new();
+    let input_bytes = input.as_bytes();
+    let mut i = 0;
+    while i < input_bytes.len() {
+        if input_bytes[i] == b'%' && i + 2 < input_bytes.len() {
+            if let Ok(b) = u8::from_str_radix(
+                std::str::from_utf8(&input_bytes[i + 1..i + 3]).unwrap_or(""),
+                16,
+            ) {
+                bytes.push(b);
+                i += 3;
+                continue;
+            }
+        }
+        if input_bytes[i] == b'+' {
+            bytes.push(b' ');
+        } else {
+            bytes.push(input_bytes[i]);
+        }
+        i += 1;
+    }
+    String::from_utf8_lossy(&bytes).into_owned()
 }
-fn safe_file_name(value: &str) -> String {
+
+fn parse_filename_from_content_disposition(header_val: &str) -> Option<String> {
+    // Try filename*= first (RFC 5987)
+    for part in header_val.split(';') {
+        let trimmed = part.trim();
+        if let Some(rest) = trimmed.strip_prefix("filename*=") {
+            let clean = rest.trim_matches(['"', '\'']);
+            let encoded = if let Some((_, val)) = clean.split_once("''") {
+                val
+            } else {
+                clean
+            };
+            let decoded = url_decode_engine(encoded);
+            let name = decoded.trim();
+            if !name.is_empty() {
+                return Some(name.to_string());
+            }
+        }
+    }
+    // Fall back to filename=
+    for part in header_val.split(';') {
+        let trimmed = part.trim();
+        if let Some(rest) = trimmed.strip_prefix("filename=") {
+            let clean = rest.trim_matches(['"', '\'']);
+            let name = clean.trim();
+            if !name.is_empty() {
+                return Some(name.to_string());
+            }
+        }
+    }
+    None
+}
+
+fn extract_filename_from_url_path(url: &Url) -> Option<String> {
+    let segments: Vec<&str> = url.path_segments()?.filter(|s| !s.is_empty()).collect();
+    for segment in segments.into_iter().rev() {
+        let clean = segment.split('?').next().unwrap_or(segment);
+        let decoded = url_decode_engine(clean);
+        let trimmed = decoded.trim().to_string();
+        let lower = trimmed.to_lowercase();
+        if matches!(
+            lower.as_str(),
+            "download" | "resolve" | "main" | "master" | "raw" | "blob" | "files"
+        ) {
+            continue;
+        }
+        if trimmed.contains('.') && !trimmed.ends_with('.') {
+            return Some(trimmed);
+        }
+    }
+    None
+}
+
+fn safe_file_name(value: impl AsRef<str>) -> String {
     let cleaned: String = value
+        .as_ref()
         .chars()
         .map(|character| {
             if "<>:\"/\\|?*".contains(character) || character.is_control() {
@@ -1498,13 +1570,18 @@ fn safe_file_name(value: &str) -> String {
     }
 }
 fn category_for_extension(extension: Option<&str>) -> &'static str {
-    match extension.unwrap_or("") {
-        "jpg" | "jpeg" | "png" | "webp" | "gif" => "Imagens",
-        "mp4" | "mkv" | "mov" | "avi" | "webm" => "Vídeos",
-        "mp3" | "wav" | "flac" | "ogg" => "Áudios",
-        "pdf" | "docx" | "xlsx" | "pptx" | "txt" => "Documentos",
-        "zip" | "rar" | "7z" | "tar" | "gz" | "tgz" => "Compactados",
-        "exe" | "msi" | "apk" | "bat" => "Aplicativos",
+    let clean_ext = extension.unwrap_or("").trim().to_lowercase();
+    match clean_ext.as_str() {
+        "jpg" | "jpeg" | "png" | "webp" | "gif" | "bmp" | "ico" | "svg" | "tiff" | "heic" => "Imagens",
+        "mp4" | "mkv" | "mov" | "avi" | "webm" | "flv" | "wmv" | "m4v" | "3gp" | "ts" => "Vídeos",
+        "mp3" | "wav" | "flac" | "ogg" | "m4a" | "aac" | "wma" | "opus" | "alac" => "Áudios",
+        "pdf" | "docx" | "xlsx" | "pptx" | "txt" | "doc" | "xls" | "ppt" | "csv" | "rtf" | "odt" | "epub" => "Documentos",
+        "zip" | "rar" | "7z" | "tar" | "gz" | "tgz" | "bz2" | "xz" | "cab" | "img" | "dmg" | "z01" | "z02" | "r00" | "r01" | "001" => "Compactados",
+        "safetensors" | "ckpt" | "gguf" | "pt" | "pth" | "onnx" | "tflite" | "h5" | "pb"
+        | "keras" | "model" | "mlmodel" | "safetensor" | "sft" | "ggml" | "ot" | "tensor"
+        | "weights" | "lora" => "Modelos de IA",
+        "exe" | "msi" | "apk" | "bat" | "cmd" | "ps1" | "appimage" | "deb" | "rpm" | "run"
+        | "bin" | "jar" | "vbs" | "wsf" | "com" | "gadget" | "sh" | "command" | "app" => "Aplicativos",
         "torrent" => "Torrents",
         _ => "Outros",
     }
@@ -1512,16 +1589,24 @@ fn category_for_extension(extension: Option<&str>) -> &'static str {
 fn available_path(folder: &Path, file_name: &str, taken_paths: &[String]) -> PathBuf {
     let original = folder.join(file_name);
     let is_taken = |path: &Path| {
-        path.exists() || taken_paths.iter().any(|p| Path::new(p) == path) || {
-            if let (Some(parent), Some(name)) = (path.parent(), path.file_name()) {
-                parent
-                    .join(".sf-temp")
-                    .join(format!("{}.part", name.to_string_lossy()))
-                    .exists()
-            } else {
-                false
+        // Check if the file exists on disk
+        if path.exists() {
+            return true;
+        }
+        // Check if it's registered as an active download in the DB
+        if taken_paths.iter().any(|p| Path::new(p) == path) {
+            return true;
+        }
+        // Check if there's an active .part in .sf-temp (but NOT in cancelados/)
+        if let (Some(parent), Some(name)) = (path.parent(), path.file_name()) {
+            let active_part = parent
+                .join(".sf-temp")
+                .join(format!("{}.part", name.to_string_lossy()));
+            if active_part.exists() {
+                return true;
             }
         }
+        false
     };
     if !is_taken(&original) {
         return original;

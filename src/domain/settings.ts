@@ -61,10 +61,15 @@ export interface AppSettings {
   autoRenameDuplicates?: boolean;
   downloadPriority?: string;
   speedLimitText?: string;
+  secondaryDownloadFolder?: string;
+  secondaryFolderEnabled?: boolean;
+  showAiAssistant?: boolean;
 }
 
 export const defaultSettings: AppSettings = {
   rootDownloadFolder: "",
+  secondaryDownloadFolder: "",
+  secondaryFolderEnabled: false,
   autoOrganizeEnabled: true,
   deleteArchiveAfterExtract: false,
   defaultSpeedValue: 100,
@@ -90,7 +95,12 @@ export const defaultSettings: AppSettings = {
     ],
   },
   sidebarAnimation: true,
-  customCategories: [],
+  showAiAssistant: true,
+  customCategories: [
+    { id: "cat-jogos", name: "Jogos", extensions: ["iso", "rom", "pkg"] },
+    { id: "cat-series", name: "Séries", extensions: ["mkv", "mp4"] },
+    { id: "cat-docs", name: "Documentos", extensions: ["pdf", "docx"] },
+  ],
   autoStartDownloads: true,
   openFolderOnComplete: false,
   autoRenameDuplicates: false,

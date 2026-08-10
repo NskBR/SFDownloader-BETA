@@ -1,50 +1,11 @@
 const capture = document.querySelector("#capture");
 const status = document.querySelector("#status");
 const connection = document.querySelector("#connection");
-const fileTypesList = document.querySelector("#file-types-list");
-const trayToggle = document.querySelector("#tray-toggle");
-const trayBadge = document.querySelector("#tray-badge");
+const disabledInput = document.querySelector("#disabled-extensions-input");
+const btnResetDefault = document.querySelector("#btn-reset-default");
 const versionBadge = document.querySelector("#version-badge");
 
-const CAPTURED_TYPES = [
-  ".JPG",
-  ".JPEG",
-  ".PNG",
-  ".WEBP",
-  ".GIF",
-  ".MP4",
-  ".MKV",
-  ".MOV",
-  ".AVI",
-  ".WEBM",
-  ".MP3",
-  ".WAV",
-  ".FLAC",
-  ".OGG",
-  ".PDF",
-  ".DOC",
-  ".DOCX",
-  ".XLS",
-  ".XLSX",
-  ".PPTX",
-  ".TXT",
-  ".ZIP",
-  ".RAR",
-  ".7Z",
-  ".TAR",
-  ".GZ",
-  ".TGZ",
-  ".EXE",
-  ".MSI",
-  ".APK",
-  ".BAT",
-  ".TORRENT",
-  ".ISO",
-  ".BIN",
-];
-
-// Espelho de DEFAULT_DISABLED_EXTENSIONS (background.js): tipos que vêm
-// desativados de fábrica.
+// Extensões ignoradas por padrão (formatos que o navegador lida melhor nativamente)
 const DEFAULT_DISABLED_EXTENSIONS = [
   ".JPG",
   ".JPEG",
@@ -71,61 +32,81 @@ function renderCapture(enabled) {
   capture.setAttribute("aria-checked", String(enabled));
 }
 
-function renderTrayBadge(disabledCount = 0) {
-  if (!trayBadge) return;
-  if (disabledCount > 0) {
-    trayBadge.textContent = `${CAPTURED_TYPES.length} formatos • ${disabledCount} desativados`;
-  } else {
-    trayBadge.textContent = `${CAPTURED_TYPES.length} formatos ativos`;
+// Parse the textarea content into a normalized array of extensions
+function parseExclusionInput(text) {
+  return text
+    .split(/[\s,;]+/)
+    .map(v => v.trim().toUpperCase())
+    .filter(v => v.length > 0)
+    .map(v => (v.startsWith(".") ? v : `.${v}`));
+}
+
+// Format the array back to display text (without dots, space-separated)
+function formatExclusions(arr) {
+  return arr
+    .map(v => v.replace(/^\./, "").toUpperCase())
+    .join(" ");
+}
+
+async function updateDisabledExtensions(disabledArray) {
+  const value = [...new Set(disabledArray)].sort();
+  await storageSet({ disabledExtensions: value });
+  chrome.runtime.sendMessage({
+    type: "extension-filters-updated",
+    disabledExtensions: value,
+  });
+}
+
+// Debounce to avoid saving on every keystroke
+let saveTimeout = null;
+function onInputChange() {
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(() => {
+    const parsed = parseExclusionInput(disabledInput.value);
+    void updateDisabledExtensions(parsed);
+  }, 400);
+}
+
+if (disabledInput) {
+  disabledInput.addEventListener("input", onInputChange);
+}
+
+if (btnResetDefault) {
+  btnResetDefault.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const defaults = [...DEFAULT_DISABLED_EXTENSIONS];
+    if (disabledInput) {
+      disabledInput.value = formatExclusions(defaults);
+    }
+    void updateDisabledExtensions(defaults);
+  });
+}
+
+function applyTheme(themeAccent, themeBg) {
+  if (themeAccent) {
+    document.documentElement.style.setProperty("--ember", themeAccent);
+    document.documentElement.style.setProperty("--ember-solid", themeAccent);
+    document.documentElement.style.setProperty("--accent-cyan", themeAccent);
+    document.documentElement.style.setProperty("--st-connected", themeAccent);
+    let soft = themeAccent + "26";
+    if (themeAccent.startsWith("rgb")) {
+      soft = themeAccent.replace("rgb", "rgba").replace(")", ", 0.15)");
+    }
+    document.documentElement.style.setProperty("--ember-soft", soft);
+  }
+  if (themeBg) {
+    document.documentElement.style.setProperty("--bg-fill", themeBg);
   }
 }
 
-function setTrayExpanded(expanded) {
-  if (trayToggle) {
-    trayToggle.setAttribute("aria-expanded", String(expanded));
-  }
-}
-
-function renderFileTypes(disabledExtensions = []) {
-  const disabled = new Set(
-    disabledExtensions.map(value => {
-      const cleaned = String(value || "").trim().toUpperCase();
-      return cleaned.startsWith(".") ? cleaned : `.${cleaned}`;
-    }),
-  );
-
-  renderTrayBadge(disabled.size);
-
-  fileTypesList.replaceChildren(
-    ...CAPTURED_TYPES.map(extension => {
-      const button = document.createElement("button");
-      const enabled = !disabled.has(extension);
-      button.type = "button";
-      button.className = "type-chip";
-      button.textContent = extension.replace(".", "");
-      button.setAttribute("aria-pressed", String(enabled));
-      button.title = enabled
-        ? `Capturando ${extension} automaticamente`
-        : `${extension} será baixado nativamente pelo navegador`;
-      button.addEventListener("click", async (e) => {
-        e.stopPropagation();
-        const nextDisabled = new Set(disabled);
-        if (nextDisabled.has(extension)) nextDisabled.delete(extension);
-        else nextDisabled.add(extension);
-        const value = [...nextDisabled].sort();
-        await storageSet({ disabledExtensions: value });
-        chrome.runtime.sendMessage({
-          type: "extension-filters-updated",
-          disabledExtensions: value,
-        });
-        renderFileTypes(value);
-      });
-      return button;
-    }),
-  );
+function updateThemeFromStorage() {
+  chrome.storage.local.get(["themeAccent", "themeBg"], ({ themeAccent, themeBg }) => {
+    applyTheme(themeAccent, themeBg);
+  });
 }
 
 function checkConnection() {
+  updateThemeFromStorage();
   chrome.storage.local.get("captureEnabled", ({ captureEnabled = false }) => {
     if (!captureEnabled) {
       connection.classList.remove("connected");
@@ -140,12 +121,16 @@ function checkConnection() {
       connection.title = connected ? "SF Downloader conectado e ativo" : "SF Downloader desconectado";
       status.textContent = connected ? "SF Downloader conectado e ativo" : "Abra o SF Downloader para conectar";
       status.classList.toggle("connected", Boolean(connected));
+      if (response?.themeAccent || response?.themeBg) {
+        applyTheme(response.themeAccent, response.themeBg);
+      }
     });
   });
 }
 
-storageGet({ captureEnabled: false, disabledExtensions: null, trayOpen: false }).then(
-  ({ captureEnabled = false, disabledExtensions, trayOpen = false }) => {
+storageGet({ captureEnabled: false, disabledExtensions: null, themeAccent: null, themeBg: null }).then(
+  ({ captureEnabled = false, disabledExtensions, themeAccent, themeBg }) => {
+    applyTheme(themeAccent, themeBg);
     const disabled = Array.isArray(disabledExtensions)
       ? disabledExtensions
       : [...DEFAULT_DISABLED_EXTENSIONS];
@@ -153,19 +138,11 @@ storageGet({ captureEnabled: false, disabledExtensions: null, trayOpen: false })
       storageSet({ disabledExtensions: disabled });
     }
     renderCapture(captureEnabled);
-    renderFileTypes(disabled);
-    setTrayExpanded(Boolean(trayOpen));
+    if (disabledInput) {
+      disabledInput.value = formatExclusions(disabled);
+    }
   },
 );
-
-if (trayToggle) {
-  trayToggle.addEventListener("click", () => {
-    const current = trayToggle.getAttribute("aria-expanded") === "true";
-    const next = !current;
-    setTrayExpanded(next);
-    storageSet({ trayOpen: next });
-  });
-}
 
 capture.addEventListener("click", () => {
   const next = capture.getAttribute("aria-checked") !== "true";

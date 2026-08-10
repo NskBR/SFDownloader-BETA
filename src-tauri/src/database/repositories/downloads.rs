@@ -115,6 +115,14 @@ pub fn replace_url(connection: &Connection, id: &str, url: &str) -> Result<()> {
     Ok(())
 }
 
+pub fn update_temp_path(connection: &Connection, id: &str, temp_path: &str) -> Result<()> {
+    connection.execute(
+        "UPDATE download_tasks SET temp_path=?2,updated_at=CURRENT_TIMESTAMP WHERE id=?1",
+        params![id, temp_path],
+    )?;
+    Ok(())
+}
+
 pub fn recover_interrupted(connection: &Connection) -> Result<Vec<String>> {
     let mut statement = connection.prepare("SELECT id,temp_path,total_downloaded FROM download_tasks WHERE status IN ('pending','checking_files','downloading','assembling','extracting')")?;
     let interrupted: Vec<(String, String, i64)> = statement

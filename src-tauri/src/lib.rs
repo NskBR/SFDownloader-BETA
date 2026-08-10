@@ -1,9 +1,10 @@
-const CATEGORY_FOLDERS: [&str; 8] = [
+const CATEGORY_FOLDERS: [&str; 9] = [
     "Imagens",
     "Vídeos",
     "Áudios",
     "Documentos",
     "Compactados",
+    "Modelos de IA",
     "Aplicativos",
     "Torrents",
     "Outros",
@@ -201,6 +202,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             create_category_folders,
             browser_bridge::browser_extension_status,
+            browser_bridge::update_extension_theme,
             commands::context_menu::show_download_context_menu,
             commands::downloads::create_download,
             commands::downloads::list_downloads,

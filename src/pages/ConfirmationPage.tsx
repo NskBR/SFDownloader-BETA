@@ -23,14 +23,17 @@ import {
   Copy,
   CopyCheck,
   Code,
+  HardDrive,
+  Check,
+  PlusCircle,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { emit } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Toggle } from "../components/ui/Toggle";
 import { CustomSelect } from "../components/ui/CustomSelect";
-import { categoryForFile, downloadCategories } from "../domain/categories";
+import { categoryForFile, cleanExtension, downloadCategories } from "../domain/categories";
 import { loadSettings } from "../services/settingsStorage";
 import * as service from "../services/downloadService";
 
@@ -117,10 +120,71 @@ export function ConfirmationPage({ token }: { token: string }) {
   const [showPassword, setShowPassword] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("Outros");
   const [detailsOpen, setDetailsOpen] = useState(false);
-
+  const [locationPickerOpen, setLocationPickerOpen] = useState(false);
+  const locationPickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!payload || payload.preview) return;
+    if (!locationPickerOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (locationPickerRef.current && !locationPickerRef.current.contains(e.target as Node)) {
+        setLocationPickerOpen(false);
+      }
+    };
+    window.addEventListener("mousedown", handleClickOutside);
+    return () => window.removeEventListener("mousedown", handleClickOutside);
+  }, [locationPickerOpen]);
+
+  const chooseFolder = async () => {
+    try {
+      const path = await open({ directory: true });
+      if (typeof path === "string" && path.trim()) {
+        setDestination(path.trim());
+        setLocationPickerOpen(false);
+        try {
+          localStorage.setItem("sf-downloader.last-save-folder", path.trim());
+        } catch {}
+      }
+    } catch {}
+  };
+
+  const selectPrimaryLocation = () => {
+    const primary = settings.rootDownloadFolder || destination;
+    setDestination(primary);
+    setLocationPickerOpen(false);
+    try {
+      localStorage.setItem("sf-downloader.last-save-folder", primary);
+    } catch {}
+  };
+
+  const selectSecondaryLocation = async () => {
+    if (!settings.secondaryDownloadFolder) {
+      await chooseFolder();
+    } else {
+      setDestination(settings.secondaryDownloadFolder);
+      setLocationPickerOpen(false);
+      try {
+        localStorage.setItem("sf-downloader.last-save-folder", settings.secondaryDownloadFolder);
+      } catch {}
+    }
+  };
+
+  useEffect(() => {
+    if (!payload) return;
+    // If preview already has a valid fileSize (> 0) and valid extension, skip re-inspection
+    if (
+      preview &&
+      preview.fileSize &&
+      preview.fileSize > 0 &&
+      preview.extension &&
+      preview.extension !== "N/A" &&
+      preview.fileName &&
+      preview.fileName !== "download.bin"
+    ) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     let active = true;
     if (payload.url.startsWith("magnet:") || payload.url.toLowerCase().endsWith(".torrent")) {
       void service
@@ -144,7 +208,27 @@ export function ConfirmationPage({ token }: { token: string }) {
     } else {
       void service
         .inspectDownload(payload.url)
-        .then((result) => active && setPreview(result))
+        .then((result) => {
+          if (!active) return;
+          setPreview((prev) => ({
+            url: result.url || payload.url,
+            fileName:
+              result.fileName && result.fileName !== "download.bin"
+                ? result.fileName
+                : prev?.fileName && prev.fileName !== "download.bin"
+                ? prev.fileName
+                : result.fileName,
+            fileSize: result.fileSize || prev?.fileSize || null,
+            mimeType: result.mimeType || prev?.mimeType || null,
+            extension:
+              result.extension ||
+              (result.fileName && result.fileName.includes(".")
+                ? result.fileName.split(".").pop()?.toLowerCase() || null
+                : null) ||
+              prev?.extension ||
+              null,
+          }));
+        })
         .catch((cause) => active && setError(String(cause)))
         .finally(() => active && setLoading(false));
     }
@@ -156,10 +240,25 @@ export function ConfirmationPage({ token }: { token: string }) {
   useEffect(() => {
     if (preview) {
       setSelectedCategory(
-        categoryForFile(preview.fileName, settings.customCategories),
+        categoryForFile(preview.fileName, settings.customCategories, undefined, preview.url),
       );
     }
   }, [preview, settings.customCategories]);
+
+  const displayExtension = useMemo(() => {
+    if (preview?.extension && preview.extension.trim() && preview.extension.toLowerCase() !== "bin") {
+      return preview.extension.toUpperCase();
+    }
+    if (preview?.fileName) {
+      const ext = cleanExtension(preview.fileName);
+      if (ext) return ext.toUpperCase();
+    }
+    if (preview?.url) {
+      const ext = cleanExtension(preview.url);
+      if (ext) return ext.toUpperCase();
+    }
+    return "ARQUIVO";
+  }, [preview]);
 
   const close = () => void appWindow.close();
   const isArchive = ["zip", "7z", "rar", "tar", "gz", "tgz"].includes(
@@ -169,17 +268,14 @@ export function ConfirmationPage({ token }: { token: string }) {
     ...downloadCategories.map((item) => item.name),
     ...settings.customCategories.map((item) => item.name),
   ];
-  const isCustomFolder = destination.trim() !== "" && destination !== settings.rootDownloadFolder;
+  const isPreconfiguredFolder =
+    destination.trim() !== "" &&
+    (destination === settings.rootDownloadFolder ||
+      (Boolean(settings.secondaryDownloadFolder) && destination === settings.secondaryDownloadFolder));
 
-  const chooseFolder = async () => {
-    const path = await open({ directory: true });
-    if (typeof path === "string" && path.trim()) {
-      setDestination(path);
-      try {
-        localStorage.setItem("sf-downloader.last-save-folder", path);
-      } catch {}
-    }
-  };
+  const isCustomFolder = destination.trim() !== "" && !isPreconfiguredFolder;
+
+
 
   const restoreDefaultFolder = () => {
     setDestination(settings.rootDownloadFolder);
@@ -277,10 +373,10 @@ export function ConfirmationPage({ token }: { token: string }) {
           <div className="confirm-body">
             {/* Linha 1: Local e Categoria em 2 Colunas */}
             <div className="confirm-grid-row">
-              <div className="confirm-field-col">
+              <div className="confirm-field-col" ref={locationPickerRef} style={{ position: "relative" }}>
                 <div className="confirm-label-row">
                   <span className="confirm-label">Local</span>
-                  {destination !== settings.rootDownloadFolder && (
+                  {isCustomFolder && (
                     <button
                       type="button"
                       className="confirm-btn-reset-default"
@@ -292,18 +388,75 @@ export function ConfirmationPage({ token }: { token: string }) {
                     </button>
                   )}
                 </div>
-                <div className="confirm-control-box">
+                <div className="confirm-control-box" onClick={() => setLocationPickerOpen((v) => !v)} style={{ cursor: "pointer" }}>
                   <FolderOpen className="field-icon" size={16} />
                   <input
                     className="confirm-input-text"
                     value={destination || ""}
                     placeholder="Selecione uma pasta"
                     readOnly
+                    style={{ cursor: "pointer" }}
                   />
-                  <button className="confirm-btn-alterar" onClick={chooseFolder}>
+                  <button
+                    type="button"
+                    className="confirm-btn-alterar"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLocationPickerOpen((v) => !v);
+                    }}
+                  >
                     Alterar
                   </button>
                 </div>
+
+                {/* Dropdown Popover de Locais de Download (Ultra-Compacto em Linha Única) */}
+                {locationPickerOpen && (
+                  <div className="location-picker-dropdown">
+                    {/* Opção 1: Pasta download padrão */}
+                    <button
+                      type="button"
+                      className={`location-dropdown-opt ${destination === settings.rootDownloadFolder ? "selected" : ""}`}
+                      onClick={selectPrimaryLocation}
+                      title={settings.rootDownloadFolder || "Pasta Padrão"}
+                    >
+                      <FolderOpen size={15} className="loc-opt-icon" />
+                      <span className="loc-opt-title">Pasta padrão</span>
+                      <span className="loc-opt-path">
+                        {settings.rootDownloadFolder ? `(${settings.rootDownloadFolder})` : ""}
+                      </span>
+                      {destination === settings.rootDownloadFolder && <Check size={14} className="loc-opt-check" />}
+                    </button>
+
+                    {/* Opção 2: Segunda pasta em outro disco */}
+                    <button
+                      type="button"
+                      className={`location-dropdown-opt ${destination === settings.secondaryDownloadFolder && settings.secondaryDownloadFolder ? "selected" : ""}`}
+                      onClick={() => void selectSecondaryLocation()}
+                      title={settings.secondaryDownloadFolder || "Segunda Pasta (Outro disco)"}
+                    >
+                      <HardDrive size={15} className="loc-opt-icon" />
+                      <span className="loc-opt-title">Segunda pasta</span>
+                      <span className="loc-opt-path">
+                        {settings.secondaryDownloadFolder ? `(${settings.secondaryDownloadFolder})` : "(Não configurada)"}
+                      </span>
+                      {destination === settings.secondaryDownloadFolder && settings.secondaryDownloadFolder ? (
+                        <Check size={14} className="loc-opt-check" />
+                      ) : !settings.secondaryDownloadFolder ? (
+                        <span className="loc-opt-tag">Configurar</span>
+                      ) : null}
+                    </button>
+
+                    {/* Opção 3: Escolher outro local */}
+                    <button
+                      type="button"
+                      className="location-dropdown-opt"
+                      onClick={() => void chooseFolder()}
+                    >
+                      <PlusCircle size={15} className="loc-opt-icon" />
+                      <span className="loc-opt-title">Escolher outro local...</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className={`confirm-field-col${isCustomFolder ? " confirm-field-disabled" : ""}`}>
@@ -337,7 +490,7 @@ export function ConfirmationPage({ token }: { token: string }) {
               </div>
               <div className="confirm-meta-item item-type">
                 <FileText size={16} />
-                <span>{(preview?.extension || "ARQUIVO").toUpperCase()}</span>
+                <span>{displayExtension}</span>
               </div>
             </div>
 

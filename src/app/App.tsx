@@ -51,7 +51,7 @@ export function App() {
    return (
      <>
        <AppShell activePage={activePage} onNavigate={navigate} sidebarAnimation={settings.sidebarAnimation} updateInfo={updateInfo}>{content}</AppShell>
-       {!["settings", "metrics", "profile"].includes(activePage) && <FloatingAiWidget />}
+       {!["settings", "metrics", "profile"].includes(activePage) && (settings.showAiAssistant ?? true) && <FloatingAiWidget />}
      </>
    );
 }

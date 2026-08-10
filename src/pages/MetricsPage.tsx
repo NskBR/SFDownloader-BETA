@@ -45,11 +45,19 @@ function Donut({ segments, centerLabel, centerValue }: {
   centerValue: string;
 }) {
   const size = 160;
-  const stroke = 20;
+  const stroke = 18;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
-  const total = segments.reduce((sum, segment) => sum + segment.value, 0);
-  let offset = 0;
+
+  const activeSegments = segments.filter((s) => s.value > 0);
+  const total = activeSegments.reduce((sum, segment) => sum + segment.value, 0);
+
+  const gap = activeSegments.length > 1 ? 3 : 0;
+  const totalGap = gap * activeSegments.length;
+  const availableCircumference = Math.max(0, circumference - totalGap);
+
+  let accumulatedOffset = 0;
+
   return (
     <div className="donut-wrap">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
@@ -62,11 +70,13 @@ function Donut({ segments, centerLabel, centerValue }: {
           strokeWidth={stroke}
         />
         {total > 0 &&
-          segments.map((segment) => {
-            if (segment.value <= 0) return null;
+          activeSegments.map((segment) => {
             const fraction = segment.value / total;
-            const dash = fraction * circumference;
-            const circle = (
+            const dash = fraction * availableCircumference;
+            const currentOffset = accumulatedOffset;
+            accumulatedOffset += dash + gap;
+
+            return (
               <circle
                 key={segment.label}
                 cx={size / 2}
@@ -75,14 +85,13 @@ function Donut({ segments, centerLabel, centerValue }: {
                 fill="none"
                 stroke={segment.color}
                 strokeWidth={stroke}
-                strokeLinecap="round"
+                strokeLinecap="butt"
                 strokeDasharray={`${dash} ${circumference - dash}`}
-                strokeDashoffset={-offset}
+                strokeDashoffset={-currentOffset}
                 transform={`rotate(-90 ${size / 2} ${size / 2})`}
+                style={{ transition: "stroke-dasharray 0.3s ease, stroke-dashoffset 0.3s ease" }}
               />
             );
-            offset += dash;
-            return circle;
           })}
       </svg>
       <div className="donut-center">

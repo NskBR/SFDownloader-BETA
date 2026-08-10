@@ -26,6 +26,8 @@ for (const target of ["chromium", "firefox"]) {
   await writeFile(join(out, "manifest.json"), manifestContent);
   await cp(join(project, "src-tauri", "icons", "32x32.png"), join(out, "icons", "sf-small.png"));
   await cp(join(project, "src-tauri", "icons", "128x128.png"), join(out, "icons", "sf-large.png"));
+  await cp(join(project, "src-tauri", "icons", "32x32_off.png"), join(out, "icons", "sf-small-off.png"));
+  await cp(join(project, "src-tauri", "icons", "128x128_off.png"), join(out, "icons", "sf-large-off.png"));
   
   console.log(`Empacotando ${target} v${version}...`);
   

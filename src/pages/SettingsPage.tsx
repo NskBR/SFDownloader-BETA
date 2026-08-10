@@ -18,6 +18,8 @@ import {
   Check,
   Sparkles,
   Dices,
+  HardDrive,
+  Bot,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -47,6 +49,9 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [categoryName, setCategoryName] = useState("");
   const [categoryExtensions, setCategoryExtensions] = useState("");
+  const [editingCatId, setEditingCatId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editExts, setEditExts] = useState("");
   const [customizerModalOpen, setCustomizerModalOpen] = useState(false);
 
   const appThemes = [
@@ -160,6 +165,24 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
     }
   };
 
+  const selectSecondaryFolder = async () => {
+    setError(null);
+    try {
+      const folder = await chooseDownloadFolder();
+      if (folder) {
+        const next = {
+          ...draft,
+          secondaryDownloadFolder: folder,
+          secondaryFolderEnabled: true,
+        };
+        setDraft(next);
+        void save(next);
+      }
+    } catch {
+      setError("Não foi possível abrir o seletor de pastas.");
+    }
+  };
+
   const addCategory = () => {
     const name = categoryName.trim();
     if (!name || /[<>:"/\\|?*]/.test(name) || name === "." || name === "..") {
@@ -196,6 +219,30 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
       "customCategories",
       draft.customCategories.filter((category) => category.id !== id),
     );
+
+  const startEditCategory = (cat: { id: string; name: string; extensions: string[] }) => {
+    setEditingCatId(cat.id);
+    setEditName(cat.name);
+    setEditExts(Array.isArray(cat.extensions) ? cat.extensions.join(", ") : "");
+  };
+
+  const saveEditCategory = (id: string) => {
+    const name = editName.trim();
+    if (!name) return;
+    const extensions = Array.from(
+      new Set(
+        editExts
+          .split(/[\s,;]+/)
+          .map((ext) => ext.replace(/^\./, "").toLowerCase())
+          .filter((ext) => /^[a-z0-9]+$/.test(ext)),
+      ),
+    );
+    const next = draft.customCategories.map((c) =>
+      c.id === id ? { ...c, name, extensions } : c,
+    );
+    update("customCategories", next);
+    setEditingCatId(null);
+  };
 
   const tabs = [
     { id: "personalizacao", label: "Personalização", icon: <Palette size={16} /> },
@@ -256,15 +303,31 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                     </div>
                   </div>
 
-                  <div className="cfg-card-content">
-                    <div className="cfg-path-input-row">
-                      <div className="cfg-path-display" title={draft.rootDownloadFolder}>
-                        {draft.rootDownloadFolder || "Selecione uma pasta..."}
+                  <div className="cfg-card-content" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    <div>
+                      <span className="cfg-item-label" style={{ fontSize: "11px", color: "var(--muted)", marginBottom: "4px", display: "block" }}>Pasta Padrão Principal</span>
+                      <div className="cfg-path-input-row">
+                        <div className="cfg-path-display" title={draft.rootDownloadFolder}>
+                          {draft.rootDownloadFolder || "Selecione uma pasta..."}
+                        </div>
+                        <button type="button" className="cfg-btn-alterar" onClick={selectFolder}>
+                          <Folder size={15} />
+                          <span>Alterar</span>
+                        </button>
                       </div>
-                      <button type="button" className="cfg-btn-alterar" onClick={selectFolder}>
-                        <Folder size={15} />
-                        <span>Alterar</span>
-                      </button>
+                    </div>
+
+                    <div>
+                      <span className="cfg-item-label" style={{ fontSize: "11px", color: "var(--muted)", marginBottom: "4px", display: "block" }}>Segunda Pasta Padrão (Outro Disco / Personalizável)</span>
+                      <div className="cfg-path-input-row">
+                        <div className="cfg-path-display" title={draft.secondaryDownloadFolder}>
+                          {draft.secondaryDownloadFolder || "Nenhuma segunda pasta selecionada"}
+                        </div>
+                        <button type="button" className="cfg-btn-alterar" onClick={selectSecondaryFolder}>
+                          <HardDrive size={15} />
+                          <span>{draft.secondaryDownloadFolder ? "Alterar" : "Configurar"}</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -663,45 +726,80 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                           </tr>
                         </thead>
                         <tbody>
-                          {[
-                            { id: "def-jogos", name: "Jogos", extensions: ["iso", "rom", "pkg"], isDefault: true },
-                            { id: "def-series", name: "Séries", extensions: ["mkv", "mp4"], isDefault: true },
-                            { id: "def-docs", name: "Documentos", extensions: ["pdf", "docx"], isDefault: true },
-                            ...draft.customCategories.map(c => ({ ...c, isDefault: false }))
-                          ].map((cat) => (
-                            <tr key={cat.id}>
-                              <td>
-                                <div className="cfg-cat-name-cell">
-                                  <Folder size={15} className="cfg-cat-folder-icon" />
-                                  <span>{cat.name}</span>
-                                </div>
-                              </td>
-                              <td className="cfg-cat-ext-cell">
-                                {Array.isArray(cat.extensions) ? cat.extensions.join(", ") : ""}
-                              </td>
-                              <td className="text-right">
-                                <div className="cfg-cat-actions">
-                                  <button
-                                    type="button"
-                                    className="cfg-cat-action-btn edit"
-                                    title="Editar categoria"
-                                  >
-                                    <Pencil size={13} />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="cfg-cat-action-btn delete"
-                                    onClick={() => {
-                                      if (!cat.isDefault) removeCategory(cat.id);
-                                    }}
-                                    title="Excluir categoria"
-                                  >
-                                    <Trash2 size={13} />
-                                  </button>
-                                </div>
+                          {draft.customCategories.length === 0 ? (
+                            <tr>
+                              <td colSpan={3} style={{ textAlign: "center", color: "var(--muted)", padding: "20px" }}>
+                                Nenhuma categoria personalizada cadastrada.
                               </td>
                             </tr>
-                          ))}
+                          ) : (
+                            draft.customCategories.map((cat) => (
+                              <tr key={cat.id}>
+                                <td>
+                                  {editingCatId === cat.id ? (
+                                    <input
+                                      type="text"
+                                      className="cfg-cat-input"
+                                      value={editName}
+                                      onChange={(e) => setEditName(e.target.value)}
+                                      style={{ padding: "2px 6px", fontSize: "12px", width: "90%" }}
+                                    />
+                                  ) : (
+                                    <div className="cfg-cat-name-cell">
+                                      <Folder size={15} className="cfg-cat-folder-icon" />
+                                      <span>{cat.name}</span>
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="cfg-cat-ext-cell">
+                                  {editingCatId === cat.id ? (
+                                    <input
+                                      type="text"
+                                      className="cfg-cat-input"
+                                      value={editExts}
+                                      onChange={(e) => setEditExts(e.target.value)}
+                                      placeholder="iso, rom, pkg"
+                                      style={{ padding: "2px 6px", fontSize: "12px", width: "90%" }}
+                                    />
+                                  ) : (
+                                    Array.isArray(cat.extensions) ? cat.extensions.join(", ") : ""
+                                  )}
+                                </td>
+                                <td className="text-right">
+                                  <div className="cfg-cat-actions">
+                                    {editingCatId === cat.id ? (
+                                      <button
+                                        type="button"
+                                        className="cfg-cat-action-btn edit"
+                                        onClick={() => saveEditCategory(cat.id)}
+                                        title="Salvar alterações"
+                                        style={{ color: "var(--ember, #22d3ee)" }}
+                                      >
+                                        <Check size={13} />
+                                      </button>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        className="cfg-cat-action-btn edit"
+                                        onClick={() => startEditCategory(cat)}
+                                        title="Editar categoria"
+                                      >
+                                        <Pencil size={13} />
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      className="cfg-cat-action-btn delete"
+                                      onClick={() => removeCategory(cat.id)}
+                                      title="Excluir categoria"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))
+                          )}
                         </tbody>
                       </table>
                     </div>
@@ -876,22 +974,43 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                     />
                   </div>
                 </div>
+
+                <div className="cfg-item-row">
+                  <div className="cfg-item-left">
+                    <Bot size={18} className="cfg-item-icon" />
+                    <div>
+                      <strong className="cfg-item-label">Assistente de IA Flutuante</strong>
+                      <span className="cfg-item-desc">Exibe o botão flutuante de inteligência artificial na tela principal.</span>
+                    </div>
+                  </div>
+                  <div className="cfg-item-right">
+                    <Toggle
+                      checked={draft.showAiAssistant ?? true}
+                      onChange={(value) => update("showAiAssistant", value)}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
             <div className="cfg-card">
-              <div className="cfg-card-header">
-                <div className="cfg-card-icon-box">
-                  <Globe className="cfg-card-icon" size={20} />
+              <div className="cfg-card-header" style={{ justifyContent: "space-between", width: "100%" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <div className="cfg-card-icon-box">
+                    <Globe className="cfg-card-icon" size={20} />
+                  </div>
+                  <div>
+                    <h3 className="cfg-card-title">Integração de Navegadores</h3>
+                    <p className="cfg-card-subtitle">Captação automática de links nos navegadores web.</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="cfg-card-title">Integração de Navegadores</h3>
-                  <p className="cfg-card-subtitle">Captação automática de links nos navegadores web.</p>
-                </div>
+                <span className="cfg-autosave" style={{ fontSize: "11px", height: "fit-content" }}>
+                  Extensão v0.3.1
+                </span>
               </div>
               <div className="cfg-card-content">
                 <p style={{ fontSize: "12.5px", color: "var(--text-2)", marginBottom: "12px" }}>
-                  Instale a extensão do SF Downloader para capturar downloads nos navegadores Chromium (Chrome, Edge, Opera, Brave, Vivaldi) e Firefox.
+                  Instale a extensão oficial do SF Downloader (versão <strong>v0.3.1</strong>) para capturar downloads nos navegadores Chromium (Chrome, Edge, Opera, Brave, Vivaldi) e Firefox.
                 </p>
                 <button
                   type="button"

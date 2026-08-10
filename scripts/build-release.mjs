@@ -10,24 +10,28 @@ const rootDir = path.resolve(__dirname, "..");
 const releaseDir = path.join(rootDir, "release");
 const tauriTargetDir = path.join(rootDir, "src-tauri", "target", "release");
 
+const tauriConf = JSON.parse(fs.readFileSync(path.join(rootDir, "src-tauri", "tauri.conf.json"), "utf8"));
+const currentVersion = tauriConf.version;
+
 console.log("==================================================");
-console.log("🚀 Iniciando Build do SFDownloader...");
+console.log(`🚀 Iniciando Build do SFDownloader v${currentVersion}...`);
 console.log("==================================================");
 
 try {
   // 1. Executar Tauri Build
   execSync("npx tauri build", { cwd: rootDir, stdio: "inherit" });
 
-  // 2. Garantir pasta release/ no diretório raiz do projeto
-  if (!fs.existsSync(releaseDir)) {
-    fs.mkdirSync(releaseDir, { recursive: true });
+  // 2. Limpar e recriar a pasta release/ para conter apenas os arquivos da versão atual
+  if (fs.existsSync(releaseDir)) {
+    fs.rmSync(releaseDir, { recursive: true, force: true });
   }
+  fs.mkdirSync(releaseDir, { recursive: true });
 
-  console.log("\n📦 Copiando arquivos gerados para a pasta release/...");
+  console.log(`\n📦 Copiando arquivos gerados da versão v${currentVersion} para a pasta release/...`);
 
   const copiedFiles = [];
 
-  // Copiar o executável principal .exe se existir
+  // Copiar o executável standalone SFDownloader.exe se existir
   const mainExe = path.join(tauriTargetDir, "SFDownloader.exe");
   if (fs.existsSync(mainExe)) {
     const destExe = path.join(releaseDir, "SFDownloader.exe");
@@ -35,7 +39,7 @@ try {
     copiedFiles.push(destExe);
   }
 
-  // Procurar por instaladores na pasta bundle/
+  // Procurar por instaladores da versão atual na pasta bundle/
   const bundleDir = path.join(tauriTargetDir, "bundle");
   if (fs.existsSync(bundleDir)) {
     const searchFolderRecursive = (dir) => {
@@ -46,7 +50,10 @@ try {
           searchFolderRecursive(fullPath);
         } else if (entry.isFile()) {
           const ext = path.extname(entry.name).toLowerCase();
-          if (ext === ".exe" || ext === ".msi" || ext === ".zip") {
+          if (
+            (ext === ".exe" || ext === ".msi" || ext === ".zip") &&
+            entry.name.includes(currentVersion)
+          ) {
             const destPath = path.join(releaseDir, entry.name);
             fs.copyFileSync(fullPath, destPath);
             copiedFiles.push(destPath);
@@ -58,9 +65,9 @@ try {
   }
 
   console.log("==================================================");
-  console.log("✅ Build concluído com sucesso!");
-  console.log(`📁 Arquivos copiados para a pasta raiz /release:\n`);
-  copiedFiles.forEach((file) => console.log(`   👉 ${file}`));
+  console.log(`✅ Build da versão v${currentVersion} concluído com sucesso!`);
+  console.log(`📁 Arquivos copiados para /release:\n`);
+  copiedFiles.forEach((file) => console.log(`   👉 ${path.basename(file)}`));
   console.log("==================================================");
 } catch (error) {
   console.error("\n❌ Erro durante o processo de build:", error);

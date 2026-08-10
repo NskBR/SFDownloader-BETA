@@ -15,44 +15,33 @@
           <strong>SF Downloader</strong>
           <span id="version-badge" class="version-badge">v0.3.1</span>
         </div>
-        <span class="subtitle">Integração do navegador</span>
       </div>
     </div>
-    <i id="connection" class="connection-dot" title="Verificando conexão..."></i>
+    <div class="header-right">
+      <i id="connection" class="connection-dot" title="Verificando conexão..."></i>
+    </div>
   </header>
 
   <main class="popup-main">
     <!-- Card Principal: Ativar/Desativar Captura -->
     <div class="setting-card">
       <div class="setting-info">
-        <strong>Capturar downloads</strong>
-        <span>Redirecionar downloads automaticamente ao aplicativo desktop.</span>
+        <strong>Captura automática</strong>
+        <span>Intercepta downloads do navegador</span>
       </div>
       <button id="capture" role="switch" aria-checked="false" aria-label="Ativar captura automática">
         <i class="switch-thumb"></i>
       </button>
     </div>
 
-    <!-- Bandeja Expansível: Formatos Capturados -->
-    <section class="tray-section" id="tray-section">
-      <button type="button" id="tray-toggle" class="tray-header-btn" aria-expanded="false">
-        <div class="tray-info">
-          <div class="tray-title-row">
-            <strong>Formatos capturados</strong>
-            <span id="tray-badge" class="tray-badge">0 formatos</span>
-          </div>
-          <span>Clique para expandir e gerenciar as extensões.</span>
-        </div>
-        <svg class="chevron-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="m6 9 6 6 6-6"/>
-        </svg>
-      </button>
-      <div class="tray-content" id="tray-content">
-        <div class="tray-inner">
-          <div class="tray-tip">Desative extensões que devem continuar baixando nativamente pelo navegador:</div>
-          <div id="file-types-list" class="file-types-grid"></div>
-        </div>
+    <!-- Extensões Ignoradas -->
+    <section class="exclusion-section">
+      <div class="exclusion-header">
+        <strong>Extensões ignoradas</strong>
+        <button type="button" id="btn-reset-default" class="reset-link">Restaurar padrão</button>
       </div>
+      <textarea id="disabled-extensions-input" class="exclusion-input" rows="2" spellcheck="false" placeholder="Ex: JPG PNG GIF TXT"></textarea>
+      <span class="exclusion-hint">Separar por espaço. Esses formatos serão baixados pelo navegador.</span>
     </section>
 
     <!-- Footer de Status de Conexão -->

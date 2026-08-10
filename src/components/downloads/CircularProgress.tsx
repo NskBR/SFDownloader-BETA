@@ -67,12 +67,12 @@ export function CircularProgress({
         y="50%"
         dominantBaseline="central"
         textAnchor="middle"
-        fontSize={size * 0.26}
+        fontSize={size * 0.23}
         fontWeight={700}
         fill="var(--text)"
         style={{ pointerEvents: "none" }}
       >
-        {Math.round(clamped)}
+        {Math.round(clamped)}%
       </text>
     </svg>
   );

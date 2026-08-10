@@ -26,6 +26,8 @@ pub struct BrowserBridge {
     token: String,
     contexts: Arc<Mutex<HashMap<String, HeaderMap>>>,
     last_seen: Arc<AtomicU64>,
+    theme_accent: Arc<Mutex<Option<String>>>,
+    theme_bg: Arc<Mutex<Option<String>>>,
 }
 
 impl Default for BrowserBridge {
@@ -34,6 +36,8 @@ impl Default for BrowserBridge {
             token: Uuid::new_v4().to_string(),
             contexts: Arc::new(Mutex::new(HashMap::new())),
             last_seen: Arc::new(AtomicU64::new(0)),
+            theme_accent: Arc::new(Mutex::new(None)),
+            theme_bg: Arc::new(Mutex::new(None)),
         }
     }
 }
@@ -44,6 +48,15 @@ impl BrowserBridge {
             .duration_since(UNIX_EPOCH)
             .map(|duration| duration.as_secs())
             .unwrap_or(0)
+    }
+
+    pub fn set_theme(&self, accent: String, bg: String) {
+        if let Ok(mut a) = self.theme_accent.lock() {
+            *a = Some(accent);
+        }
+        if let Ok(mut b) = self.theme_bg.lock() {
+            *b = Some(bg);
+        }
     }
 
     pub fn mark_seen(&self) {
@@ -127,6 +140,8 @@ struct SyncResponse {
     token: String,
     file_exts: Vec<&'static str>,
     blocked_hosts: Vec<&'static str>,
+    theme_accent: Option<String>,
+    theme_bg: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -207,18 +222,38 @@ async fn sync(State(state): State<BridgeState>) -> impl IntoResponse {
     let _ = state.app.emit("browser-extension-status", true);
     let mut headers = HeaderMap::new();
     headers.insert("access-control-allow-origin", HeaderValue::from_static("*"));
+    let theme_accent = state.bridge.theme_accent.lock().ok().and_then(|guard| guard.clone());
+    let theme_bg = state.bridge.theme_bg.lock().ok().and_then(|guard| guard.clone());
     (
         headers,
         Json(SyncResponse {
             enabled: true,
             token: state.bridge.token.clone(),
             file_exts: vec![
-                ".JPG", ".JPEG", ".PNG", ".WEBP", ".GIF", ".MP4", ".MKV", ".MOV", ".AVI", ".WEBM",
-                ".MP3", ".WAV", ".FLAC", ".OGG", ".PDF", ".DOC", ".DOCX", ".XLS", ".XLSX", ".PPTX",
-                ".TXT", ".ZIP", ".RAR", ".7Z", ".TAR", ".GZ", ".TGZ", ".EXE", ".MSI", ".APK",
-                ".BAT", ".TORRENT", ".ISO", ".BIN",
+                // Imagens
+                ".JPG", ".JPEG", ".PNG", ".WEBP", ".GIF", ".BMP", ".ICO", ".SVG", ".TIFF", ".HEIC",
+                // Vídeos
+                ".MP4", ".MKV", ".MOV", ".AVI", ".WEBM", ".FLV", ".WMV", ".M4V", ".3GP", ".TS",
+                // Áudios
+                ".MP3", ".WAV", ".FLAC", ".OGG", ".M4A", ".AAC", ".WMA", ".OPUS", ".ALAC",
+                // Documentos
+                ".PDF", ".DOC", ".DOCX", ".XLS", ".XLSX", ".PPTX", ".TXT", ".PPT", ".CSV", ".RTF", ".ODT", ".EPUB",
+                // Compactados
+                ".ZIP", ".RAR", ".7Z", ".TAR", ".GZ", ".TGZ", ".BZ2", ".XZ", ".CAB", ".IMG", ".DMG", ".Z01", ".Z02", ".R00", ".R01", ".001",
+                // Modelos de IA
+                ".SAFETENSORS", ".SAFETENSOR", ".CKPT", ".GGUF", ".PT", ".PTH", ".ONNX", ".TFLITE", ".H5", ".PB",
+                ".KERAS", ".MODEL", ".MLMODEL", ".SFT", ".GGML", ".OT", ".TENSOR", ".WEIGHTS", ".LORA",
+                // Aplicativos e Pacotes
+                ".EXE", ".MSI", ".APK", ".BAT", ".CMD", ".PS1", ".APPIMAGE", ".DEB", ".RPM", ".RUN",
+                ".BIN", ".JAR", ".VBS", ".WSF", ".COM", ".SH", ".COMMAND", ".APP",
+                // Jogos
+                ".ISO", ".ROM", ".PKG", ".NSP", ".XCI",
+                // Torrents
+                ".TORRENT",
             ],
             blocked_hosts: vec![],
+            theme_accent,
+            theme_bg,
         }),
     )
 }
@@ -226,6 +261,11 @@ async fn sync(State(state): State<BridgeState>) -> impl IntoResponse {
 #[tauri::command]
 pub fn browser_extension_status(bridge: tauri::State<'_, BrowserBridge>) -> bool {
     bridge.is_connected()
+}
+
+#[tauri::command]
+pub fn update_extension_theme(bridge: tauri::State<'_, BrowserBridge>, accent: String, bg: String) {
+    bridge.set_theme(accent, bg);
 }
 
 async fn download(State(state): State<BridgeState>, body: Bytes) -> impl IntoResponse {

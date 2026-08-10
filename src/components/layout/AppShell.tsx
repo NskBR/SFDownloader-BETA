@@ -199,7 +199,7 @@ export function AppShell({
             >
               <div>
                 <Download />
-                <span>Download</span>
+                <span>Todos</span>
               </div>
               <span className="counter-badge">{allCount}</span>
             </button>

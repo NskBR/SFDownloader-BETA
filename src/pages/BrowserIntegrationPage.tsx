@@ -36,8 +36,9 @@ export function BrowserIntegrationPage() {
       window.setTimeout(() => setCopied(false), 2000);
     });
   };
+  const xpiFileName = "7c2944a3066543438b23-0.3.2.xpi";
   const openXpi = () =>
-    firefoxFolder && void service.openFile(`${firefoxFolder}/integration.xpi`).catch(console.error);
+    firefoxFolder && void service.openFile(`${firefoxFolder}/${xpiFileName}`).catch(console.error);
   const close = () => void appWindow.close();
 
   return (
@@ -113,14 +114,14 @@ export function BrowserIntegrationPage() {
               onClick={openXpi}
               onMouseDown={(e) => {
                 e.preventDefault();
-                firefoxFolder && void invoke("start_drag_folder", { path: `${firefoxFolder}/integration.xpi` }).catch(console.error);
+                firefoxFolder && void invoke("start_drag_folder", { path: `${firefoxFolder}/${xpiFileName}` }).catch(console.error);
               }}
               title="Clique para abrir/instalar no Firefox ou arraste para a aba do navegador"
             >
               <div className="integr-drop-icon">
                 <Package size={26} />
               </div>
-              <strong>integration.xpi (Arraste)</strong>
+              <strong>{xpiFileName} (Arraste)</strong>
               <span>
                 Segure e solte esta peça na página de extensões do seu navegador Firefox para instalar.
               </span>
@@ -131,7 +132,7 @@ export function BrowserIntegrationPage() {
                 Clique no card acima para abrir o instalador no Firefox, ou arraste-o direto para o navegador.
               </li>
               <li>
-                Ou <button className="integr-link-btn" onClick={() => firefoxFolder && void service.revealInFolder(`${firefoxFolder}/integration.xpi`)}>abrir pasta no Explorer</button> para selecionar em <code>about:addons</code>.
+                Ou <button className="integr-link-btn" onClick={() => firefoxFolder && void service.revealInFolder(`${firefoxFolder}/${xpiFileName}`)}>abrir pasta no Explorer</button> para selecionar em <code>about:addons</code>.
               </li>
               <li>
                 Para testes em desenvolvimento: <code>about:debugging#/runtime/this-firefox</code>.

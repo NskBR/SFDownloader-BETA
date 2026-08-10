@@ -1684,7 +1684,9 @@ pub fn get_extension_dir(app: AppHandle, browser: String) -> Result<String, Stri
             .unwrap_or_else(|| {
                 include_bytes!("../../../browser-extension/release/firefox-extension.xpi").to_vec()
             });
-        std::fs::write(ext_dir.join("integration.xpi"), xpi_bytes).map_err(|e| e.to_string())?;
+        let xpi_name = "7c2944a3066543438b23-0.3.2.xpi";
+        let _ = std::fs::write(ext_dir.join(xpi_name), &xpi_bytes);
+        let _ = std::fs::write(ext_dir.join("integration.xpi"), &xpi_bytes);
     }
 
     Ok(ext_dir.to_string_lossy().to_string())

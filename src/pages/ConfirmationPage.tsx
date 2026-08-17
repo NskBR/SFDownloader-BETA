@@ -377,16 +377,16 @@ export function ConfirmationPage({ token }: { token: string }) {
             <div className="confirm-grid-row">
               <div className="confirm-field-col" ref={locationPickerRef} style={{ position: "relative" }}>
                 <div className="confirm-label-row">
-                  <span className="confirm-label">Local</span>
+                  <span className="confirm-label">{t.confirmation.location}</span>
                   {isCustomFolder && (
                     <button
                       type="button"
                       className="confirm-btn-reset-default"
                       onClick={restoreDefaultFolder}
-                      title="Voltar para a pasta padrão configurada no aplicativo"
+                      title={t.confirmation.restoreDefaultTooltip}
                     >
                       <RotateCcw size={12} />
-                      <span>Voltar ao padrão</span>
+                      <span>{t.confirmation.restoreDefault}</span>
                     </button>
                   )}
                 </div>
@@ -407,7 +407,7 @@ export function ConfirmationPage({ token }: { token: string }) {
                       setLocationPickerOpen((v) => !v);
                     }}
                   >
-                    Alterar
+                    {t.confirmation.change}
                   </button>
                 </div>
 
@@ -462,13 +462,13 @@ export function ConfirmationPage({ token }: { token: string }) {
               </div>
 
               <div className={`confirm-field-col${isCustomFolder ? " confirm-field-disabled" : ""}`}>
-                <span className="confirm-label">Categoria</span>
+                <span className="confirm-label">{t.confirmation.category}</span>
                 <div className="confirm-control-box box-custom-select">
                   <CustomSelect
                     value={isCustomFolder ? "" : selectedCategory}
                     options={
                       isCustomFolder
-                        ? [{ value: "", label: "Pasta personalizada" }]
+                        ? [{ value: "", label: t.confirmation.customFolder }]
                         : categories.map((cat) => ({ value: cat, label: cat }))
                     }
                     onChange={(val) => setSelectedCategory(val)}
@@ -498,7 +498,7 @@ export function ConfirmationPage({ token }: { token: string }) {
 
             {/* Linha 3: Extrair e Senha em 2 Colunas */}
             <div className="confirm-grid-row">
-              <div className="confirm-control-box box-toggle">
+              <div className="confirm-control-box box-toggle" title={t.confirmation.autoExtract}>
                 <Toggle
                   label={t.confirmation.autoExtract}
                   checked={isArchive && autoExtract}
@@ -516,7 +516,7 @@ export function ConfirmationPage({ token }: { token: string }) {
                   value={password}
                   disabled={!autoExtract}
                   onChange={(event) => setPassword(event.target.value)}
-                  placeholder="Password (optional)"
+                  placeholder={t.confirmation.passwordPlaceholder}
                 />
                 <button
                   type="button"

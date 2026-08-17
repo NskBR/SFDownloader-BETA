@@ -1437,6 +1437,9 @@ body.sidebar-anim-disabled [data-accent="gradient_flow"] * {
   border-radius: 9px;
   position: relative;
   transition: border-color 0.15s;
+  min-width: 0;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 .confirm-control-box:focus-within {
   border-color: var(--st-completed, #00b884);
@@ -1506,12 +1509,22 @@ body.sidebar-anim-disabled [data-accent="gradient_flow"] * {
   align-self: flex-end;
   justify-content: flex-start;
   padding-left: 10px;
+  min-width: 0;
+  overflow: hidden;
+  gap: 8px;
+}
+.confirm-control-box.box-toggle .toggle {
+  flex-shrink: 0;
 }
 .confirm-control-box.box-toggle .toggle-label {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--text, #f0f2f5);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
 }
 
 .confirm-control-box.box-password.is-disabled {

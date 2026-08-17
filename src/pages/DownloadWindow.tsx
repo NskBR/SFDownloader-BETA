@@ -101,12 +101,8 @@ function Donut({ value, status }: { value: number; status: DownloadStatus }) {
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         <defs>
           <linearGradient id="dw-donut-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="var(--ember-stop-1, #06b6d4)">
-              <animate attributeName="stop-color" values="#00f2fe;#7928ca;#ff007a;#00f2fe" dur="6s" repeatCount="indefinite" />
-            </stop>
-            <stop offset="100%" stopColor="var(--ember-stop-2, #22d3ee)">
-              <animate attributeName="stop-color" values="#ff007a;#00f2fe;#7928ca;#ff007a" dur="6s" repeatCount="indefinite" />
-            </stop>
+            <stop offset="0%" stopColor="var(--ember-stop-1, #06b6d4)" />
+            <stop offset="100%" stopColor="var(--ember-stop-2, #22d3ee)" />
           </linearGradient>
         </defs>
         <circle
@@ -164,12 +160,8 @@ function TitleDownloadIcon({ status }: { status: DownloadStatus }) {
     >
       <defs>
         <linearGradient id="dw-title-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="var(--ember-stop-1, #06b6d4)">
-            <animate attributeName="stop-color" values="#00f2fe;#7928ca;#ff007a;#00f2fe" dur="6s" repeatCount="indefinite" />
-          </stop>
-          <stop offset="100%" stopColor="var(--ember-stop-2, #22d3ee)">
-            <animate attributeName="stop-color" values="#ff007a;#00f2fe;#7928ca;#ff007a" dur="6s" repeatCount="indefinite" />
-          </stop>
+          <stop offset="0%" stopColor="var(--ember-stop-1, #06b6d4)" />
+          <stop offset="100%" stopColor="var(--ember-stop-2, #22d3ee)" />
         </linearGradient>
       </defs>
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />

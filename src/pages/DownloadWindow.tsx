@@ -476,7 +476,7 @@ export function DownloadWindow({ downloadId }: { downloadId: string }) {
               </div>
 
               {!isCompleted && (
-                <div className={`dw-bar${isActive ? " dw-bar--active" : ""}${status === "paused" ? " dw-bar--paused" : ""}`} role="progressbar" aria-valuenow={Math.round(progress)}>
+                <div className={`dw-bar${isActive ? " dw-bar--active" : ""}${status === "paused" ? " dw-bar--paused" : ""}${isFailed ? " dw-bar--failed" : ""}`} role="progressbar" aria-valuenow={Math.round(progress)}>
                   <i style={{ width: `${progress}%` }} />
                 </div>
               )}

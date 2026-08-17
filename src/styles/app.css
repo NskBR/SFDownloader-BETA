@@ -2691,6 +2691,19 @@ input::-ms-clear {
   background: var(--st-paused, #f59e0b) !important;
   box-shadow: 0 0 10px rgba(245, 158, 11, 0.45) !important;
 }
+/* Download falhou ou cancelado: cor vermelha (#ef4444) */
+.dw-window.status-failed .dw-bar i,
+.dw-window.status-cancelled .dw-bar i,
+.dw-bar--failed i {
+  background: var(--st-failed, #ef4444) !important;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.45) !important;
+}
+/* Download concluído: cor verde (#00b884) */
+.dw-window.status-completed .dw-bar i,
+.dw-bar--completed i {
+  background: var(--st-completed, #00b884) !important;
+  box-shadow: 0 0 10px rgba(0, 184, 132, 0.45) !important;
+}
 @keyframes dw-bar-check-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.65; }
@@ -5601,6 +5614,16 @@ html, body, #root, .window-frame {
   background: var(--ember-solid, #06b6d4);
   border-radius: 4px;
   transition: width 0.3s ease;
+}
+.torrent-live-window.status-failed .tl-progress-bar-fill,
+.torrent-live-window.status-cancelled .tl-progress-bar-fill {
+  background: var(--st-failed, #ef4444) !important;
+}
+.torrent-live-window.status-paused .tl-progress-bar-fill {
+  background: var(--st-paused, #f59e0b) !important;
+}
+.torrent-live-window.status-completed .tl-progress-bar-fill {
+  background: var(--st-completed, #00b884) !important;
 }
 .tl-progress-labels {
   display: flex;

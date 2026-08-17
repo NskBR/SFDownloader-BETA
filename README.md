@@ -6,7 +6,7 @@
 
 Construído com **Tauri 2 + React + Rust** — leve, nativo e sem Electron.
 
-[![Version](https://img.shields.io/badge/versão-0.3.5-blue?style=for-the-badge)](https://github.com/NskBR/SFDownloader-BETA/releases)
+[![Version](https://img.shields.io/badge/versão-0.3.7-blue?style=for-the-badge)](https://github.com/NskBR/SFDownloader-BETA/releases)
 [![Tauri](https://img.shields.io/badge/Tauri-2.0-FFC131?style=for-the-badge&logo=tauri&logoColor=white)](https://tauri.app)
 [![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
 [![Rust](https://img.shields.io/badge/Rust-2021-CE422B?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org)
@@ -22,7 +22,8 @@ Construído com **Tauri 2 + React + Rust** — leve, nativo e sem Electron.
 > - [x] Motor de download HTTP/HTTPS com segmentação por Range
 > - [x] Pausa, retomada e recuperação automática de downloads interrompidos
 > - [x] Extração automática de arquivos compactados (ZIP, RAR, 7Z, TAR) com senha
-> - [x] Extensão oficial para navegadores Chromium (Chrome, Edge, Brave, Opera) e Firefox
+> - [x] Extensão oficial para navegadores Chromium (Chrome, Edge, Brave, Opera) e Firefox (v0.3.3)
+> - [x] Suporte multilíngue completo com sincronização dinâmica (Português & Inglês)
 > - [x] Notificador nativo de atualizações via GitHub Releases na barra de título
 > - [x] Temas futuristas com customizador de cores sólidas e gradientes dinâmicos
 > - [x] Painel de Métricas e estatísticas com exportação em TXT / JSON
@@ -35,32 +36,35 @@ Construído com **Tauri 2 + React + Rust** — leve, nativo e sem Electron.
 
 ## 📸 Capturas de Tela
 
-### Interface Principal (Lista de Downloads)
+### Interface Principal
 > Visualize todos os seus downloads organizados por categorias, com filtros em tempo real, velocidade acumulada, busca e modos de exibição.
 
-![Lista de Downloads](screenshots/downloads-list.png)
+![Interface Principal](screenshots/aplicativo.png)
 
-### 🪟 Visão Geral de Janelas Secundárias & Diálogos Nativos
-> Suporte nativo a múltiplas janelas independentes (Confirmação de Download, Detalhes Técnicos, Adicionar Torrent, Progresso P2P e Estado de Conclusão).
+### 🪟 Janelas de Download & Diálogos Nativos
+> Suporte nativo a múltiplas janelas independentes (Confirmação de Download, Detalhes Técnicos, Progresso e Conclusão).
 
-![Visão Geral de Janelas Simultâneas](screenshots/window-all-open.png)
+![Janelas de Download](screenshots/janelas-download.png)
 
----
+### Suporte a BitTorrent & P2P
+> Adição e gerenciamento visual de torrents e magnet links com seleção individual de arquivos e monitoramento de peers e seeds.
 
-### Configurações e Personalização
-> Cores de destaque sólidas e gradientes, temas de interface com paletas pré-definidas e seletor de idioma.
+![BitTorrent e P2P](screenshots/torrent.png)
 
-![Configurações](screenshots/settings.png)
+### Personalização & Temas
+> Seletor de cores sólidas e gradientes, temas de interface com paletas pré-definidas e alternância instantânea de idioma.
+
+![Temas e Personalização](screenshots/temas.png)
 
 ### Métricas e Estatísticas
 > Painel completo com total baixado, volume por status, escrita em disco, velocidade média e tempo médio por download — tudo exportável em TXT ou JSON.
 
-![Métricas](screenshots/metrics.png)
+![Métricas e Estatísticas](screenshots/estatisticas.png)
 
-### Integração com Navegadores
-> Extensão nativa para Chromium (Chrome, Edge, Opera, Brave, Vivaldi) e Firefox. Captura links automaticamente e envia direto para o SFDownloader.
+### Extensão & Integração com Navegadores
+> Extensão nativa para Chromium (Chrome, Edge, Opera, Brave, Vivaldi) e Firefox. Captura links automaticamente e sincroniza tema e idioma direto com o aplicativo.
 
-![Integração com Navegadores](screenshots/browser-integration.png)
+![Integração com Navegadores](screenshots/extensao.png)
 
 ---
 

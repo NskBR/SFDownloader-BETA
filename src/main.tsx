@@ -61,8 +61,24 @@ window.addEventListener("storage", (event) => {
   }
 });
 
-if (label === "main" && !initialSettings.startInTrayMode) {
-  void getCurrentWindow().show().catch(console.error);
+if (label === "main") {
+  invoke<boolean>("is_autostart_boot")
+    .then((isAutostart) => {
+      if (!isAutostart) {
+        const win = getCurrentWindow();
+        void win.unminimize().catch(() => {});
+        void win.setSkipTaskbar(false).catch(() => {});
+        void win.show().catch(console.error);
+        void win.setFocus().catch(() => {});
+      }
+    })
+    .catch(() => {
+      const win = getCurrentWindow();
+      void win.unminimize().catch(() => {});
+      void win.setSkipTaskbar(false).catch(() => {});
+      void win.show().catch(console.error);
+      void win.setFocus().catch(() => {});
+    });
 }
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

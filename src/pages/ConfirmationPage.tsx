@@ -36,6 +36,7 @@ import { CustomSelect } from "../components/ui/CustomSelect";
 import { categoryForFile, cleanExtension, downloadCategories } from "../domain/categories";
 import { loadSettings } from "../services/settingsStorage";
 import * as service from "../services/downloadService";
+import { useTranslation } from "../i18n";
 
 interface Payload {
   url: string;
@@ -84,6 +85,7 @@ const getFormattedErrorMessage = (raw: string) => {
 };
 
 export function ConfirmationPage({ token }: { token: string }) {
+  const { t } = useTranslation();
   const storageKey = `sf-downloader.confirmation-${token}`;
   const payload = useMemo(() => {
     try {
@@ -498,12 +500,12 @@ export function ConfirmationPage({ token }: { token: string }) {
             <div className="confirm-grid-row">
               <div className="confirm-control-box box-toggle">
                 <Toggle
-                  label="Extrair após concluir"
+                  label={t.confirmation.autoExtract}
                   checked={isArchive && autoExtract}
                   onChange={setAutoExtract}
                   disabled={!isArchive}
                 />
-                <span className="toggle-label">Extrair após concluir</span>
+                <span className="toggle-label">{t.confirmation.autoExtract}</span>
               </div>
 
               <div className={`confirm-control-box box-password ${autoExtract ? "" : "is-disabled"}`}>
@@ -514,7 +516,7 @@ export function ConfirmationPage({ token }: { token: string }) {
                   value={password}
                   disabled={!autoExtract}
                   onChange={(event) => setPassword(event.target.value)}
-                  placeholder="Digite a senha (opcional)"
+                  placeholder="Password (optional)"
                 />
                 <button
                   type="button"
@@ -535,12 +537,12 @@ export function ConfirmationPage({ token }: { token: string }) {
               onClick={() => setDetailsOpen((v) => !v)}
             >
               <ChevronDown className={detailsOpen ? "is-open" : ""} size={16} />
-              <span>Mais detalhes</span>
+              <span>{t.downloadWindow.moreDetails}</span>
             </button>
 
             <div className="confirm-footer-actions">
               <button className="confirm-btn-cancel" onClick={close}>
-                Cancelar
+                {t.common.cancel}
               </button>
               <button
                 className="confirm-btn-start"
@@ -548,7 +550,7 @@ export function ConfirmationPage({ token }: { token: string }) {
                 onClick={() => void finish()}
               >
                 <Download size={18} />
-                <span>{busy ? "Iniciando..." : "Iniciar download"}</span>
+                <span>{busy ? `${t.confirmation.startDownload}...` : t.confirmation.startDownload}</span>
               </button>
             </div>
           </footer>
@@ -561,36 +563,36 @@ export function ConfirmationPage({ token }: { token: string }) {
           <div className="dw-details-header" data-tauri-drag-region>
             <button type="button" className="dw-details-back nodrag" onClick={() => setDetailsOpen(false)}>
               <ArrowLeft size={14} />
-              <span>Voltar</span>
+              <span>{t.common.back}</span>
             </button>
-            <span className="dw-details-header-title">Detalhes Técnicos</span>
+            <span className="dw-details-header-title">{t.downloadWindow.detailsTitle}</span>
           </div>
 
           <div className="dw-details-compact-body">
             {/* Tabela de Metadados Técnicos */}
             <div className="dw-details-card">
               <div className="dw-detail-row">
-                <span className="dw-detail-label">URL Completa</span>
+                <span className="dw-detail-label">{t.downloadWindow.originalUrl}</span>
                 <b className="dw-detail-val dw-detail-path" title={payload.url}>{payload.url}</b>
               </div>
               <div className="dw-detail-row">
-                <span className="dw-detail-label">Provedor / Servidor</span>
+                <span className="dw-detail-label">Host</span>
                 <b className="dw-detail-val">{hostName || "—"}</b>
               </div>
               <div className="dw-detail-row">
-                <span className="dw-detail-label">Tipo MIME</span>
+                <span className="dw-detail-label">MIME</span>
                 <b className="dw-detail-val">{preview?.mimeType || "application/octet-stream"}</b>
               </div>
               <div className="dw-detail-row">
-                <span className="dw-detail-label">Tamanho Exato</span>
+                <span className="dw-detail-label">{t.common.size}</span>
                 <b className="dw-detail-val">{preview?.fileSize ? `${preview.fileSize.toLocaleString()} bytes` : "—"}</b>
               </div>
               <div className="dw-detail-row">
-                <span className="dw-detail-label">Extensão</span>
+                <span className="dw-detail-label">Ext</span>
                 <b className="dw-detail-val">{preview?.extension?.toUpperCase() || "N/A"}</b>
               </div>
               <div className="dw-detail-row">
-                <span className="dw-detail-label">Pasta de Destino</span>
+                <span className="dw-detail-label">{t.downloadWindow.destinationFolder}</span>
                 <b className="dw-detail-val dw-detail-path" title={destination}>{destination || "—"}</b>
               </div>
             </div>
@@ -599,18 +601,18 @@ export function ConfirmationPage({ token }: { token: string }) {
             <div className="dw-mini-actions-row">
               <button type="button" className="dw-mini-action-btn" onClick={() => void navigator.clipboard.writeText(payload.url)}>
                 <Copy size={13} className="icon-green" />
-                <span>Copiar URL</span>
+                <span>{t.downloads.copyUrl}</span>
               </button>
               <button type="button" className="dw-mini-action-btn" onClick={() => {
-                const info = `URL: ${payload.url}\nProvedor: ${hostName}\nMIME: ${preview?.mimeType}\nTamanho: ${preview?.fileSize} bytes\nDestino: ${destination}`;
+                const info = `URL: ${payload.url}\nHost: ${hostName}\nMIME: ${preview?.mimeType}\nSize: ${preview?.fileSize} bytes\nDest: ${destination}`;
                 void navigator.clipboard.writeText(info);
               }}>
                 <CopyCheck size={13} className="icon-green" />
-                <span>Copiar tudo</span>
+                <span>{t.common.copy}</span>
               </button>
               <button type="button" className="dw-mini-action-btn" onClick={chooseFolder}>
                 <FolderOpen size={13} className="icon-amber" />
-                <span>Abrir pasta</span>
+                <span>{t.common.openFolder}</span>
               </button>
             </div>
           </div>

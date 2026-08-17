@@ -16,6 +16,7 @@ import {
   Info,
   MoreHorizontal,
   BarChart3,
+  Magnet,
 } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type PropsWithChildren } from "react";
 import type { PageId } from "../../app/navigation";
@@ -25,6 +26,7 @@ import { TitleBar } from "./TitleBar";
 import { invoke } from "@tauri-apps/api/core";
 import logo from "../../assets/sf-logo.png";
 import { version } from "../../../package.json";
+import { useTranslation } from "../../i18n";
 
 interface Props extends PropsWithChildren {
   activePage: PageId;
@@ -41,6 +43,9 @@ const groups = {
   applications: ["exe", "msi", "apk", "bat", "appimage", "dmg", "pkg"],
 };
 
+const DEFAULT_WIDTH = 240;
+const COMPACT_WIDTH = 68;
+
 export function AppShell({
   activePage,
   onNavigate,
@@ -48,6 +53,7 @@ export function AppShell({
   updateInfo,
   children,
 }: Props) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [copiedDiscord, setCopiedDiscord] = useState(false);
@@ -67,6 +73,66 @@ export function AppShell({
     height: 0,
     visible: false,
   });
+
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem("sf_sidebar_width");
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (!isNaN(parsed)) {
+          if (parsed <= 90) return COMPACT_WIDTH;
+          return Math.min(Math.max(parsed, 140), DEFAULT_WIDTH);
+        }
+      }
+    } catch {}
+    return DEFAULT_WIDTH;
+  });
+  const [isResizing, setIsResizing] = useState(false);
+  const isCompact = sidebarWidth <= 90;
+
+  const startResizing = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  };
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const sidebar = sidebarRef.current;
+      if (!sidebar) return;
+      const baseLeft = sidebar.getBoundingClientRect().left;
+      const rawWidth = e.clientX - baseLeft;
+
+      let finalWidth: number;
+      if (rawWidth < 115) {
+        finalWidth = COMPACT_WIDTH;
+      } else {
+        finalWidth = Math.min(Math.max(rawWidth, 140), DEFAULT_WIDTH);
+      }
+
+      setSidebarWidth(finalWidth);
+      localStorage.setItem("sf_sidebar_width", finalWidth.toString());
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isResizing]);
+
+  const toggleSidebarWidth = () => {
+    const targetWidth = isCompact ? DEFAULT_WIDTH : COMPACT_WIDTH;
+    setSidebarWidth(targetWidth);
+    localStorage.setItem("sf_sidebar_width", targetWidth.toString());
+  };
 
   useEffect(() => {
     const update = () => {
@@ -108,7 +174,6 @@ export function AppShell({
     const resizeObserver = new ResizeObserver(updatePosition);
     resizeObserver.observe(sidebar);
 
-    // Também observar o botão ativo caso ele se mova devido ao flexbox
     const active =
       sidebar.querySelector<HTMLElement>(".navigation__item--active") ??
       sidebar.querySelector<HTMLElement>(".sidebar-footer-btn.active");
@@ -120,7 +185,7 @@ export function AppShell({
       window.removeEventListener("resize", updatePosition);
       resizeObserver.disconnect();
     };
-  }, [activePage, typesOpen]);
+  }, [activePage, typesOpen, sidebarWidth, isCompact]);
 
   const navigate = (page: PageId) => {
     onNavigate(page);
@@ -130,8 +195,6 @@ export function AppShell({
   const openExternal = (url: string) => {
     void invoke("open_url", { url }).catch(console.error);
   };
-
-
 
   // Calculate dynamic counts
   const allCount = downloads.length;
@@ -151,18 +214,24 @@ export function AppShell({
   }).length;
 
   const typeItems = [
-    { id: "torrents" as PageId, label: "Torrents", icon: Download, count: torrentsCount },
-    { id: "archives" as PageId, label: "Compactados", icon: Archive, count: archivesCount },
-    { id: "documents" as PageId, label: "Documentos", icon: FileText, count: documentsCount },
-    { id: "videos" as PageId, label: "Vídeos", icon: Video, count: videosCount },
-    { id: "music" as PageId, label: "Músicas", icon: Music2, count: musicCount },
-    { id: "applications" as PageId, label: "Programas", icon: Grid2X2, count: applicationsCount },
-    { id: "calculator" as PageId, label: "Outros", icon: MoreHorizontal, count: othersCount },
+    { id: "torrents" as PageId, label: t.sidebar.torrents, icon: Magnet, count: torrentsCount },
+    { id: "archives" as PageId, label: t.sidebar.archives, icon: Archive, count: archivesCount },
+    { id: "documents" as PageId, label: t.sidebar.documents, icon: FileText, count: documentsCount },
+    { id: "videos" as PageId, label: t.sidebar.videos, icon: Video, count: videosCount },
+    { id: "music" as PageId, label: t.sidebar.music, icon: Music2, count: musicCount },
+    { id: "applications" as PageId, label: t.sidebar.applications, icon: Grid2X2, count: applicationsCount },
+    { id: "calculator" as PageId, label: t.sidebar.others, icon: MoreHorizontal, count: othersCount },
   ];
 
   return (
     <div className="window-frame">
-      <TitleBar updateInfo={updateInfo} />
+      <TitleBar
+        updateInfo={updateInfo}
+        showFooterActionsInTitleBar={isCompact}
+        activePage={activePage}
+        onNavigate={navigate}
+        onOpenHelp={() => setHelpOpen(true)}
+      />
       <div className="app-shell">
         <button
           className="mobile-menu"
@@ -178,7 +247,11 @@ export function AppShell({
             aria-label="Fechar menu"
           />
         )}
-        <aside className={`sidebar ${open ? "sidebar--open" : ""} ${sidebarAnimation !== false ? "" : "sidebar--no-animation"}`} ref={sidebarRef}>
+        <aside
+          className={`sidebar ${isCompact ? "sidebar--compact" : ""} ${open ? "sidebar--open" : ""} ${sidebarAnimation !== false ? "" : "sidebar--no-animation"} ${isResizing ? "sidebar--resizing" : ""}`}
+          ref={sidebarRef}
+          style={{ width: `${sidebarWidth}px` }}
+        >
           <span
             className="sidebar-indicator"
             style={{
@@ -196,31 +269,36 @@ export function AppShell({
             <button
               className={`navigation__item ${activePage === "downloads" ? "navigation__item--active" : ""}`}
               onClick={() => navigate("downloads")}
+              title={isCompact ? `${t.sidebar.all} (${allCount})` : undefined}
             >
               <div>
                 <Download />
-                <span>Todos</span>
+                <span>{t.sidebar.all}</span>
               </div>
               <span className="counter-badge">{allCount}</span>
             </button>
 
-            <button
-              className="navigation__group"
-              onClick={() => setTypesOpen((value) => !value)}
-              aria-expanded={typesOpen}
-            >
-              <span className="navigation__group-label">
-                {typesOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
-                Tipos de arquivo
-              </span>
-            </button>
-            {typesOpen && typeItems.map((item) => {
+            {!isCompact && (
+              <button
+                className="navigation__group"
+                onClick={() => setTypesOpen((value) => !value)}
+                aria-expanded={typesOpen}
+              >
+                <span className="navigation__group-label">
+                  {typesOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                  {t.sidebar.fileTypes}
+                </span>
+              </button>
+            )}
+
+            {(typesOpen || isCompact) && typeItems.map((item) => {
               const isActive = activePage === item.id;
               return (
                 <button
                   key={item.id}
-                  className={`navigation__item navigation__item--child ${isActive ? "navigation__item--active" : ""}`}
+                  className={`navigation__item ${!isCompact ? "navigation__item--child" : ""} ${isActive ? "navigation__item--active" : ""}`}
                   onClick={() => navigate(item.id)}
+                  title={isCompact ? `${item.label} (${item.count})` : undefined}
                 >
                   <div>
                     <item.icon />
@@ -231,36 +309,45 @@ export function AppShell({
               );
             })}
           </nav>
-          
-          <div className="sidebar-actions">
-            <div className="sidebar-footer-row">
-              <button
-                className={`sidebar-footer-btn ${activePage === "settings" ? "active" : ""}`}
-                onClick={() => navigate("settings")}
-                title="Configurações"
-              >
-                <Settings size={18} />
-              </button>
 
-              <button
-                className={`sidebar-footer-btn ${activePage === "metrics" ? "active" : ""}`}
-                onClick={() => navigate("metrics")}
-                title="Métricas"
-              >
-                <BarChart3 size={18} />
-              </button>
+          {!isCompact && (
+            <div className="sidebar-actions">
+              <div className="sidebar-footer-row">
+                <button
+                  className={`sidebar-footer-btn ${activePage === "settings" ? "active" : ""}`}
+                  onClick={() => navigate("settings")}
+                  title={t.sidebar.settings}
+                >
+                  <Settings size={18} />
+                </button>
 
-              <button
-                className="sidebar-footer-btn"
-                onClick={() => setHelpOpen(true)}
-                title="Sobre o aplicativo"
-              >
-                <Info size={18} />
-              </button>
+                <button
+                  className={`sidebar-footer-btn ${activePage === "metrics" ? "active" : ""}`}
+                  onClick={() => navigate("metrics")}
+                  title={t.sidebar.metrics}
+                >
+                  <BarChart3 size={18} />
+                </button>
+
+                <button
+                  className="sidebar-footer-btn"
+                  onClick={() => setHelpOpen(true)}
+                  title={t.sidebar.about}
+                >
+                  <Info size={18} />
+                </button>
+              </div>
             </div>
-          </div>
+          )}
+
+          <div
+            className="sidebar-resizer"
+            onMouseDown={startResizing}
+            onDoubleClick={toggleSidebarWidth}
+            title={t.sidebar.collapse}
+          />
         </aside>
-        
+
         <main className="main-content">
           <div key={activePage} className="page-transition">{children}</div>
         </main>
@@ -277,52 +364,50 @@ export function AppShell({
                 <img className="help-logo" src={logo} alt="SF Downloader" />
                 <div>
                   <span>SF DOWNLOADER</span>
-                  <h2>Sobre o Aplicativo</h2>
+                  <h2>{t.about.title}</h2>
                 </div>
               </div>
-              <button onClick={() => setHelpOpen(false)} aria-label="Fechar">
+              <button onClick={() => setHelpOpen(false)} aria-label={t.common.close}>
                 <X />
               </button>
             </header>
 
             <p className="help-intro">
-              Gerenciador de downloads desktop moderno, feito para velocidade e
-              organização. Conexões múltiplas, retomada, categorização automática
-              e integração com o navegador.
+              {t.about.description}
             </p>
 
             <ul className="help-features">
-              <li><Download size={15} /> Downloads segmentados e retomáveis</li>
-              <li><Archive size={15} /> Extração automática de arquivos</li>
-              <li><Grid2X2 size={15} /> Organização por categorias</li>
-              <li><Puzzle size={15} /> Extensão para navegadores</li>
+              <li><Download size={15} /> {t.about.featureSegmented}</li>
+              <li><Archive size={15} /> {t.about.featureAutoExtract}</li>
+              <li><Grid2X2 size={15} /> {t.about.featureCategories}</li>
+              <li><Puzzle size={15} /> {t.about.featureBrowserExt}</li>
             </ul>
 
             <div className="help-meta">
-              <div className="help-meta-row"><span>Versão</span><b>v{version}</b></div>
+              <div className="help-meta-row"><span>{t.about.version}</span><b>v{version}</b></div>
               <div className="help-meta-row">
-                <span>Contato (Discord)</span>
+                <span>{t.about.contactDiscord}</span>
                 <button
                   className="help-contact-btn"
                   onClick={copyDiscord}
-                  title="Clique para copiar usuário do Discord"
+                  title="Discord"
                 >
                   <b>nskbr1</b>
                   {copiedDiscord ? <Check size={12} /> : <Copy size={12} />}
                 </button>
               </div>
-              <div className="help-meta-row"><span>Tecnologia</span><b>Tauri · React · Rust</b></div>
-              <div className="help-meta-row"><span>Licença</span><b>Uso pessoal</b></div>
+              <div className="help-meta-row"><span>{t.about.technology}</span><b>Tauri · React · Rust</b></div>
+              <div className="help-meta-row"><span>{t.about.license}</span><b>MIT</b></div>
             </div>
 
             <footer>
               <button
                 className="help-link"
-                onClick={() => openExternal("https://github.com/NskBR/Fs-Downloader-BETA")}
+                onClick={() => openExternal("https://github.com/NskBR/SFDownloader-BETA")}
               >
-                Repositório no GitHub
+                {t.about.githubRepo}
               </button>
-              <button onClick={() => setHelpOpen(false)}>Fechar</button>
+              <button onClick={() => setHelpOpen(false)}>{t.common.close}</button>
             </footer>
           </section>
         </div>

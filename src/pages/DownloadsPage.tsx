@@ -37,6 +37,7 @@ import type { DownloadTask } from "../domain/download";
 import { CircularProgress } from "../components/downloads/CircularProgress";
 import { FileIcon } from "../components/downloads/FileIcon";
 import { CustomSelect } from "../components/ui/CustomSelect";
+import { useTranslation } from "../i18n";
 
 const bytes = (value: number | null) => {
   if (value === null) return "—";
@@ -144,6 +145,7 @@ export function DownloadsPage({
    onSave: (settings: AppSettings) => void;
    filter: PageId;
   }) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [starting, setStarting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -316,9 +318,9 @@ export function DownloadsPage({
     });
 
   const sortOptions: { key: SortKey; label: string }[] = [
-    { key: "status", label: "Status" },
-    { key: "size", label: "Tamanho" },
-    { key: "date", label: "Data" },
+    { key: "status", label: t.downloads.sortStatus },
+    { key: "size", label: t.downloads.sortSize },
+    { key: "date", label: t.downloads.sortDate },
   ];
 
   const selectAll = useCallback(() => {
@@ -433,12 +435,12 @@ export function DownloadsPage({
   const formatTimeRemaining = (item: DownloadTask) => {
     if (item.status !== "downloading" || !item.speedCurrent || !item.fileSize) return "";
     const remainingSeconds = Math.ceil((item.fileSize - item.totalDownloaded) / item.speedCurrent);
-    if (remainingSeconds <= 0) return "calculando...";
-    if (remainingSeconds < 60) return `${remainingSeconds}s restantes`;
+    if (remainingSeconds <= 0) return "—";
+    if (remainingSeconds < 60) return `${remainingSeconds}s ${t.downloads.remaining}`;
     const minutes = Math.floor(remainingSeconds / 60);
     const seconds = remainingSeconds % 60;
-    if (minutes < 60) return `${minutes}m ${seconds}s restantes`;
-    return `${Math.floor(minutes / 60)}h ${minutes % 60}m restantes`;
+    if (minutes < 60) return `${minutes}m ${seconds}s ${t.downloads.remaining}`;
+    return `${Math.floor(minutes / 60)}h ${minutes % 60}m ${t.downloads.remaining}`;
   };
 
   const activeDownloads = downloads.filter((d) => d.status === "downloading");
@@ -466,7 +468,7 @@ export function DownloadsPage({
                 void inspect(text);
               }
             }}
-            placeholder="Buscar ou cole um link para baixar…"
+            placeholder={t.common.searchPlaceholder}
           />
         </div>
 
@@ -481,7 +483,7 @@ export function DownloadsPage({
               type="button"
               className="sort-direction"
               onClick={() => changeSort(sort.key)}
-              title={sort.direction === "asc" ? "Crescente" : "Decrescente"}
+              title={sort.direction === "asc" ? "Ascending" : "Descending"}
             >
               <ArrowDown
                 size={15}
@@ -492,14 +494,14 @@ export function DownloadsPage({
 
           <button
             className={`btn-layout-switcher ${view === "list" ? "active" : ""}`}
-            title="Visualização em Lista"
+            title="List View"
             onClick={() => changeView("list")}
           >
             <List size={20} />
           </button>
           <button
             className={`btn-layout-switcher ${view === "grid" ? "active" : ""}`}
-            title="Visualização em Grade"
+            title="Grid View"
             onClick={() => changeView("grid")}
           >
             <LayoutGrid size={20} />
@@ -529,11 +531,11 @@ export function DownloadsPage({
         )}
 
         {loading ? (
-          <div style={{ textAlign: "center", color: "var(--muted)", padding: "40px" }}>Carregando...</div>
+          <div style={{ textAlign: "center", color: "var(--muted)", padding: "40px" }}>{t.common.loading}</div>
         ) : visible.length === 0 ? (
           <div className="empty-downloads-state">
             <FolderOpen size={48} />
-            <strong>Nenhum download encontrado</strong>
+            <strong>{t.downloads.emptyTitle}</strong>
           </div>
         ) : (
           <div className={`cards-scroll-container view-${view}`}>
@@ -554,12 +556,12 @@ export function DownloadsPage({
     : item.status === "cancelled" ? "cancelled"
     : item.status === "failed" ? "failed"
     : "waiting";
-  const statusLabel = isDownloading ? "BAIXANDO"
-    : isPaused ? "PAUSADO"
-    : isCompleted ? "CONCLUÍDO"
-    : item.status === "cancelled" ? "CANCELADO"
-    : item.status === "failed" ? "FALHOU"
-    : "NA FILA";
+  const statusLabel = isDownloading ? t.downloads.statusDownloading
+    : isPaused ? t.downloads.statusPaused
+    : isCompleted ? t.downloads.statusCompleted
+    : item.status === "cancelled" ? t.downloads.statusCancelled
+    : item.status === "failed" ? t.downloads.statusFailed
+    : t.downloads.statusWaiting;
 
               const isSelected = selected.has(item.id);
               const isMultiSelected = isSelected && selected.size > 1;
@@ -579,7 +581,7 @@ export function DownloadsPage({
                     {(isDownloading || isPaused || isFailed) && progress > 0 ? (
                       <CircularProgress
                         value={progress}
-                        color={`var(--st-${statusClass})`}
+                        color={isDownloading ? "var(--ember)" : `var(--st-${statusClass})`}
                       />
                     ) : isCompleted ? (
                       <div className="indicator-icon-wrapper success">
@@ -587,7 +589,7 @@ export function DownloadsPage({
                           <CheckCircle2 />
                         </div>
                         <div className="completed-file-icon">
-                          <FileIcon extension={fileExtension(item.fileName)} />
+                          <FileIcon extension={fileExtension(item.fileName)} width={38} height={44} />
                         </div>
                       </div>
                     ) : isFailed ? (
@@ -615,7 +617,7 @@ export function DownloadsPage({
                       <button
                         type="button"
                         className="card-source"
-                        title="Copiar link de origem"
+                        title={t.downloads.copySourceLink}
                         onClick={(event) => {
                           event.stopPropagation();
                           void navigator.clipboard.writeText(item.originalUrl);
@@ -639,26 +641,26 @@ export function DownloadsPage({
                         <>
                           <span className="meta-size">{bytes(item.fileSize)}</span>
                           <span className="meta-sep" aria-hidden>·</span>
-                          <span className="meta-done">Concluído em {getCompletedElapsed(item)}</span>
+                          <span className="meta-done">{t.downloads.completedIn} {getCompletedElapsed(item)}</span>
                         </>
                       ) : isFailed ? (
                         <>
-                          <span className="meta-status err">{item.status === "cancelled" ? "Cancelado" : "Falhou"}</span>
+                          <span className="meta-status err">{item.status === "cancelled" ? t.downloads.statusCancelled : t.downloads.statusFailed}</span>
                           {item.fileSize && (
                             <>
                               <span className="meta-sep" aria-hidden>·</span>
-                              <span className="meta-size">{bytes(item.totalDownloaded)} de {bytes(item.fileSize)}</span>
+                              <span className="meta-size">{bytes(item.totalDownloaded)} {t.downloads.of} {bytes(item.fileSize)}</span>
                             </>
                           )}
                         </>
                       ) : isPaused ? (
                         <>
-                          <span className="meta-status paused">Pausado</span>
+                          <span className="meta-status paused">{t.downloads.statusPaused}</span>
                           <span className="meta-sep" aria-hidden>·</span>
-                          <span className="meta-size">{bytes(item.totalDownloaded)} de {bytes(item.fileSize)}</span>
+                          <span className="meta-size">{bytes(item.totalDownloaded)} {t.downloads.of} {bytes(item.fileSize)}</span>
                         </>
                       ) : (
-                        <span className="meta-status">Na fila</span>
+                        <span className="meta-status">{t.downloads.statusWaiting}</span>
                       )}
                     </div>
 
@@ -679,7 +681,7 @@ export function DownloadsPage({
                     {isCompleted && (
                       <button
                         className="card-action-btn"
-                        title="Abrir pasta de destino"
+                        title={t.downloads.openFolder}
                         onClick={(e) => {
                           e.stopPropagation();
                           service.revealInFolder(item.finalPath);
@@ -692,7 +694,7 @@ export function DownloadsPage({
                     {(isPaused || isFailed || isWaiting) && (
                       <button
                         className="card-action-btn"
-                        title="Retomar download"
+                        title={t.downloads.resumeDownload}
                         onClick={(e) => {
                           e.stopPropagation();
                           void resume(item.id);
@@ -705,7 +707,7 @@ export function DownloadsPage({
                     {isDownloading && (
                       <button
                         className="card-action-btn"
-                        title="Pausar download"
+                        title={t.downloads.pauseDownload}
                         onClick={(e) => {
                           e.stopPropagation();
                           void pause(item.id);
@@ -718,7 +720,7 @@ export function DownloadsPage({
                     {!isCompleted && !isFailed && (
                       <button
                         className="card-action-btn"
-                        title="Cancelar download"
+                        title={t.common.cancel}
                         onClick={(e) => {
                           e.stopPropagation();
                           void cancel(item.id);
@@ -731,12 +733,10 @@ export function DownloadsPage({
                     {isFailed && (
                       <button
                         className="card-action-btn"
-                        title="Excluir download"
+                        title={t.downloads.deleteDownload}
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (window.confirm("Excluir este download permanentemente?")) {
-                            remove([item.id]);
-                          }
+                          remove([item.id]);
                         }}
                       >
                         <Trash2 />
@@ -745,7 +745,7 @@ export function DownloadsPage({
 
                     <button
                       className="card-action-btn menu-btn"
-                      title="Opções"
+                      title={t.downloads.viewDetails}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleContextMenu(e, item);
@@ -765,33 +765,33 @@ export function DownloadsPage({
       <footer className="flux-footer">
         <div className="footer-left">
           <ArrowDown />
-          <span><strong>{bytes(totalSpeed)}/s</strong> Velocidade atual</span>
+          <span><strong>{bytes(totalSpeed)}/s</strong> {t.downloads.currentSpeed}</span>
         </div>
 
         <div className="footer-center">
           <button
             type="button"
             className="footer-action-btn pause"
-            title="Pausar todos os downloads em andamento"
+            title={t.downloads.pauseAll}
             onClick={() => downloads.filter((d) => d.status === "downloading").forEach((d) => void pause(d.id))}
           >
             <Pause size={13} />
-            <span>Pausar todos</span>
+            <span>{t.downloads.pauseAll}</span>
           </button>
           <button
             type="button"
             className="footer-action-btn resume"
-            title="Retomar todos os downloads pausados"
+            title={t.downloads.resumeAll}
             onClick={() => downloads.filter((d) => d.status === "paused").forEach((d) => void resume(d.id))}
           >
             <Play size={13} />
-            <span>Retomar todos</span>
+            <span>{t.downloads.resumeAll}</span>
           </button>
         </div>
 
         <div className="footer-right">
           <Zap />
-          <span>Máx. simultâneos:</span>
+          <span>{t.downloads.maxSimultaneous}</span>
           <CustomSelect
             value={String(settings.maxParallelDownloads)}
             options={[1, 2, 3, 4, 5, 6, 8, 10].map((n) => ({ value: String(n), label: String(n) }))}
@@ -814,32 +814,32 @@ export function DownloadsPage({
         >
           {ctxMenu.item.status === "downloading" && (
             <button className="ctx-item" onClick={() => runMenuAction("pause", ctxMenu.item)}>
-              <Pause size={15} /> Pausar download
+              <Pause size={15} /> {t.downloads.pauseDownload}
             </button>
           )}
           {["paused", "failed", "cancelled"].includes(ctxMenu.item.status) && (
             <button className="ctx-item" onClick={() => runMenuAction("resume", ctxMenu.item)}>
-              <Play size={15} /> Retomar download
+              <Play size={15} /> {t.downloads.resumeDownload}
             </button>
           )}
           {["pending", "downloading", "paused"].includes(ctxMenu.item.status) && (
             <button className="ctx-item" onClick={() => runMenuAction("cancel", ctxMenu.item)}>
-              <X size={15} /> Cancelar download
+              <X size={15} /> {t.common.cancel}
             </button>
           )}
 
           <div className="ctx-sep" />
 
           <button className="ctx-item" onClick={() => runMenuAction("folder", ctxMenu.item)}>
-            <FolderOpen size={15} /> Abrir pasta de destino
+            <FolderOpen size={15} /> {t.downloads.openFolder}
           </button>
           {ctxMenu.item.status === "completed" && (
             <button className="ctx-item" onClick={() => runMenuAction("open", ctxMenu.item)}>
-              <FileText size={15} /> Abrir arquivo
+              <FileText size={15} /> {t.common.openFile}
             </button>
           )}
           <button className="ctx-item ctx-item--danger" onClick={() => runMenuAction("delete", ctxMenu.item)}>
-            <Trash2 size={15} /> Excluir download
+            <Trash2 size={15} /> {t.downloads.deleteDownload}
           </button>
         </div>
       )}

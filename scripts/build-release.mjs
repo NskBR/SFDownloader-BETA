@@ -18,14 +18,32 @@ console.log(`🚀 Iniciando Build do SFDownloader v${currentVersion}...`);
 console.log("==================================================");
 
 try {
+  // Matar qualquer processo SFDownloader.exe em execução que possa travar a pasta release/
+  try {
+    execSync("taskkill /F /IM SFDownloader.exe", { stdio: "ignore" });
+  } catch {}
+
   // 1. Executar Tauri Build
   execSync("npx tauri build", { cwd: rootDir, stdio: "inherit" });
 
   // 2. Limpar e recriar a pasta release/
+  try {
+    execSync("taskkill /F /IM SFDownloader.exe", { stdio: "ignore" });
+  } catch {}
   if (fs.existsSync(releaseDir)) {
-    fs.rmSync(releaseDir, { recursive: true, force: true });
+    try {
+      fs.rmSync(releaseDir, { recursive: true, force: true });
+    } catch {
+      // Se não puder apagar a pasta toda, apagar arquivo por arquivo
+      const files = fs.readdirSync(releaseDir);
+      for (const f of files) {
+        try { fs.rmSync(path.join(releaseDir, f), { force: true }); } catch {}
+      }
+    }
   }
-  fs.mkdirSync(releaseDir, { recursive: true });
+  if (!fs.existsSync(releaseDir)) {
+    fs.mkdirSync(releaseDir, { recursive: true });
+  }
 
   const bundleDir = path.join(tauriTargetDir, "bundle");
   const allInstallerFiles = [];

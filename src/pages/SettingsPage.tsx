@@ -21,7 +21,7 @@ import {
   HardDrive,
   Bot,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { AppLanguage, AppSettings, AccentColor, AppColor } from "../domain/settings";
 import { downloadCategories } from "../domain/categories";
@@ -33,6 +33,7 @@ import { isLaunchOnStartup, setLaunchOnStartup } from "../services/downloadServi
 import { Toggle } from "../components/ui/Toggle";
 import { CustomSelect } from "../components/ui/CustomSelect";
 import { ThemeCustomizerModal } from "../components/ui/DiscordThemeCustomizer";
+import { useTranslation } from "../i18n";
 
 type SettingsTab = "personalizacao" | "downloads" | "arquivos" | "idioma" | "avancado";
 
@@ -44,10 +45,50 @@ interface Props {
 }
 
 export function SettingsPage({ settings, onSave, saved }: Props) {
+  const { t, setLanguage } = useTranslation();
   const [draft, setDraft] = useState(settings);
   const [activeTab, setActiveTab] = useState<SettingsTab>("downloads");
   const [error, setError] = useState<string | null>(null);
   const [categoryName, setCategoryName] = useState("");
+
+  const navTabsRef = useRef<HTMLElement | null>(null);
+  const [tabsIndicator, setTabsIndicator] = useState<{ left: number; width: number; height: number; visible: boolean }>({
+    left: 0,
+    width: 0,
+    height: 0,
+    visible: false,
+  });
+
+  useLayoutEffect(() => {
+    const nav = navTabsRef.current;
+    if (!nav) return;
+
+    const updateIndicator = () => {
+      const activeBtn = nav.querySelector<HTMLElement>(".cfg-tab-btn.is-active");
+      if (!activeBtn) {
+        setTabsIndicator((prev) => ({ ...prev, visible: false }));
+        return;
+      }
+      const navRect = nav.getBoundingClientRect();
+      const btnRect = activeBtn.getBoundingClientRect();
+      setTabsIndicator({
+        left: btnRect.left - navRect.left,
+        width: btnRect.width,
+        height: btnRect.height,
+        visible: true,
+      });
+    };
+
+    updateIndicator();
+    window.addEventListener("resize", updateIndicator);
+    const ro = new ResizeObserver(updateIndicator);
+    ro.observe(nav);
+
+    return () => {
+      window.removeEventListener("resize", updateIndicator);
+      ro.disconnect();
+    };
+  }, [activeTab]);
   const [categoryExtensions, setCategoryExtensions] = useState("");
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
@@ -245,11 +286,11 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
   };
 
   const tabs = [
-    { id: "personalizacao", label: "Personalização", icon: <Palette size={16} /> },
-    { id: "downloads", label: "Downloads", icon: <Download size={16} /> },
-    { id: "arquivos", label: "Arquivos", icon: <Folder size={16} /> },
-    { id: "idioma", label: "Idioma", icon: <Globe size={16} /> },
-    { id: "avancado", label: "Avançado", icon: <Settings2 size={16} /> },
+    { id: "personalizacao", label: t.settings.tabs.personalization, icon: <Palette size={16} /> },
+    { id: "downloads", label: t.settings.tabs.downloads, icon: <Download size={16} /> },
+    { id: "arquivos", label: t.settings.tabs.files, icon: <Folder size={16} /> },
+    { id: "idioma", label: t.settings.tabs.language, icon: <Globe size={16} /> },
+    { id: "avancado", label: t.settings.tabs.advanced, icon: <Settings2 size={16} /> },
   ];
 
   return (
@@ -257,16 +298,29 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
       {/* Cabeçalho da Página */}
       <header className="cfg-header">
         <div>
-          <h1 className="cfg-title">Configurações</h1>
-          <p className="cfg-subtitle">Organize as preferências do aplicativo por categoria.</p>
+          <h1 className="cfg-title">{t.settings.title}</h1>
+          <p className="cfg-subtitle">{t.settings.subtitle}</p>
         </div>
-        {saved && <span className="cfg-autosave">Salvo automaticamente</span>}
+        {saved && <span className="cfg-autosave">{t.settings.autoSaved}</span>}
       </header>
 
       {error && <div className="error-banner">{error}</div>}
 
       {/* Navegação por Abas Horizontais */}
-      <nav className="cfg-nav-tabs">
+      <nav
+        className={`cfg-nav-tabs ${draft.sidebarAnimation !== false ? "" : "cfg-nav-tabs--no-animation"}`}
+        ref={navTabsRef}
+      >
+        <span
+          className="cfg-tabs-indicator"
+          style={{
+            transform: `translateX(${tabsIndicator.left}px)`,
+            width: tabsIndicator.width,
+            height: tabsIndicator.height,
+            opacity: tabsIndicator.visible ? 1 : 0,
+          }}
+          aria-hidden="true"
+        />
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
@@ -298,34 +352,34 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                       <Folder className="cfg-card-icon" size={20} />
                     </div>
                     <div>
-                      <h3 className="cfg-card-title">1. Local de download</h3>
-                      <p className="cfg-card-subtitle">Escolha onde os arquivos serão salvos por padrão.</p>
+                      <h3 className="cfg-card-title">{t.settings.downloadsTab.downloadLocationTitle}</h3>
+                      <p className="cfg-card-subtitle">{t.settings.downloadsTab.downloadLocationSubtitle}</p>
                     </div>
                   </div>
 
                   <div className="cfg-card-content" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                     <div>
-                      <span className="cfg-item-label" style={{ fontSize: "11px", color: "var(--muted)", marginBottom: "4px", display: "block" }}>Pasta Padrão Principal</span>
+                      <span className="cfg-item-label" style={{ fontSize: "11px", color: "var(--muted)", marginBottom: "4px", display: "block" }}>{t.settings.downloadsTab.mainDefaultFolder}</span>
                       <div className="cfg-path-input-row">
                         <div className="cfg-path-display" title={draft.rootDownloadFolder}>
-                          {draft.rootDownloadFolder || "Selecione uma pasta..."}
+                          {draft.rootDownloadFolder || t.settings.downloadsTab.selectFolderPlaceholder}
                         </div>
                         <button type="button" className="cfg-btn-alterar" onClick={selectFolder}>
                           <Folder size={15} />
-                          <span>Alterar</span>
+                          <span>{t.settings.downloadsTab.changeFolder}</span>
                         </button>
                       </div>
                     </div>
 
                     <div>
-                      <span className="cfg-item-label" style={{ fontSize: "11px", color: "var(--muted)", marginBottom: "4px", display: "block" }}>Segunda Pasta Padrão (Outro Disco / Personalizável)</span>
+                      <span className="cfg-item-label" style={{ fontSize: "11px", color: "var(--muted)", marginBottom: "4px", display: "block" }}>{t.settings.downloadsTab.secondaryDefaultFolder}</span>
                       <div className="cfg-path-input-row">
                         <div className="cfg-path-display" title={draft.secondaryDownloadFolder}>
-                          {draft.secondaryDownloadFolder || "Nenhuma segunda pasta selecionada"}
+                          {draft.secondaryDownloadFolder || t.settings.downloadsTab.noSecondaryFolder}
                         </div>
                         <button type="button" className="cfg-btn-alterar" onClick={selectSecondaryFolder}>
                           <HardDrive size={15} />
-                          <span>{draft.secondaryDownloadFolder ? "Alterar" : "Configurar"}</span>
+                          <span>{draft.secondaryDownloadFolder ? t.settings.downloadsTab.changeFolder : t.settings.downloadsTab.configureFolder}</span>
                         </button>
                       </div>
                     </div>
@@ -339,8 +393,8 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                       <Gauge className="cfg-card-icon" size={20} />
                     </div>
                     <div>
-                      <h3 className="cfg-card-title">2. Limite de velocidade</h3>
-                      <p className="cfg-card-subtitle">Defina o limite máximo de download ou digite um valor manual.</p>
+                      <h3 className="cfg-card-title">{t.settings.downloadsTab.speedLimitTitle}</h3>
+                      <p className="cfg-card-subtitle">{t.settings.downloadsTab.speedLimitSubtitle}</p>
                     </div>
                   </div>
 
@@ -349,15 +403,15 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                       <div className="cfg-item-left">
                         <Gauge size={18} className="cfg-item-icon" />
                         <div>
-                          <strong className="cfg-item-label">Limite pré-definido</strong>
-                          <span className="cfg-item-desc">Selecione uma velocidade limite rápida.</span>
+                          <strong className="cfg-item-label">{t.settings.downloadsTab.presetLimitLabel}</strong>
+                          <span className="cfg-item-desc">{t.settings.downloadsTab.presetLimitDesc}</span>
                         </div>
                       </div>
                       <div className="cfg-item-right">
                         <CustomSelect
-                          value={draft.speedLimitText || "Sem limite"}
+                          value={draft.speedLimitText || t.settings.downloadsTab.noLimit}
                           options={[
-                            { value: "Sem limite", label: "Sem limite" },
+                            { value: t.settings.downloadsTab.noLimit, label: t.settings.downloadsTab.noLimit },
                             { value: "1 MB/s", label: "1 MB/s" },
                             { value: "5 MB/s", label: "5 MB/s" },
                             { value: "10 MB/s", label: "10 MB/s" },
@@ -373,8 +427,8 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                       <div className="cfg-item-left">
                         <Sliders size={18} className="cfg-item-icon" />
                         <div>
-                          <strong className="cfg-item-label">Personalizar velocidade</strong>
-                          <span className="cfg-item-desc">Digite o valor máximo personalizado (ex: 15 MB/s).</span>
+                          <strong className="cfg-item-label">{t.settings.downloadsTab.customSpeedLabel}</strong>
+                          <span className="cfg-item-desc">{t.settings.downloadsTab.customSpeedDesc}</span>
                         </div>
                       </div>
                       <div className="cfg-item-right">
@@ -383,7 +437,7 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                           className="cfg-path-display"
                           style={{ width: "110px", height: "32px", textAlign: "center" }}
                           value={draft.speedLimitText || ""}
-                          placeholder="Ex: 15 MB/s"
+                          placeholder={t.settings.downloadsTab.customSpeedPlaceholder}
                           onChange={(e) => update("speedLimitText", e.target.value)}
                         />
                       </div>
@@ -401,8 +455,8 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                       <Sliders className="cfg-card-icon" size={20} />
                     </div>
                     <div>
-                      <h3 className="cfg-card-title">3. Comportamento do download</h3>
-                      <p className="cfg-card-subtitle">Defina como os downloads devem se comportar.</p>
+                      <h3 className="cfg-card-title">{t.settings.downloadsTab.downloadBehaviorTitle}</h3>
+                      <p className="cfg-card-subtitle">{t.settings.downloadsTab.downloadBehaviorSubtitle}</p>
                     </div>
                   </div>
 
@@ -411,8 +465,8 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                       <div className="cfg-item-left">
                         <Play size={18} className="cfg-item-icon" />
                         <div>
-                          <strong className="cfg-item-label">Iniciar automaticamente</strong>
-                          <span className="cfg-item-desc">Inicia os downloads automaticamente ao adicioná-los.</span>
+                          <strong className="cfg-item-label">{t.settings.downloadsTab.autoStartLabel}</strong>
+                          <span className="cfg-item-desc">{t.settings.downloadsTab.autoStartDesc}</span>
                         </div>
                       </div>
                       <div className="cfg-item-right">
@@ -427,8 +481,8 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                       <div className="cfg-item-left">
                         <Package size={18} className="cfg-item-icon" />
                         <div>
-                          <strong className="cfg-item-label">Extrair após concluir</strong>
-                          <span className="cfg-item-desc">Extrai arquivos compactados automaticamente.</span>
+                          <strong className="cfg-item-label">{t.settings.downloadsTab.autoExtractLabel}</strong>
+                          <span className="cfg-item-desc">{t.settings.downloadsTab.autoExtractDesc}</span>
                         </div>
                       </div>
                       <div className="cfg-item-right">
@@ -443,8 +497,8 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                       <div className="cfg-item-left">
                         <Folder size={18} className="cfg-item-icon" />
                         <div>
-                          <strong className="cfg-item-label">Abrir pasta ao finalizar</strong>
-                          <span className="cfg-item-desc">Abre a pasta de destino quando o download terminar.</span>
+                          <strong className="cfg-item-label">{t.settings.downloadsTab.openOnCompleteLabel}</strong>
+                          <span className="cfg-item-desc">{t.settings.downloadsTab.openOnCompleteDesc}</span>
                         </div>
                       </div>
                       <div className="cfg-item-right">
@@ -456,25 +510,25 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
 
-            {/* Banner Dica */}
-            <div className="cfg-tip-banner">
-              <div className="cfg-tip-left">
-                <div className="cfg-tip-info-icon">
-                  <Info size={24} />
-                </div>
-                <div>
-                  <strong className="cfg-tip-title">Dica</strong>
-                  <p className="cfg-tip-desc">
-                    As configurações estão organizadas por abas para facilitar a navegação. Ajuste apenas o que faz sentido para o seu fluxo e aproveite o SF Downloader!
-                  </p>
-                </div>
-              </div>
-              <div className="cfg-tip-badge">
-                <div className="cfg-tip-graphic">
-                  <CheckCircle size={28} className="cfg-tip-check" />
+                {/* Banner Dica */}
+                <div className="cfg-tip-banner">
+                  <div className="cfg-tip-left">
+                    <div className="cfg-tip-info-icon">
+                      <Info size={24} />
+                    </div>
+                    <div>
+                      <strong className="cfg-tip-title">{t.settings.downloadsTab.tipTitle}</strong>
+                      <p className="cfg-tip-desc">
+                        {t.settings.downloadsTab.tipDesc}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="cfg-tip-badge">
+                    <div className="cfg-tip-graphic">
+                      <CheckCircle size={28} className="cfg-tip-check" />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -488,8 +542,8 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
             <div className="cfg-card">
               <div className="cfg-card-header cfg-theme-header">
                 <div>
-                  <h3 className="cfg-card-title">Tema do aplicativo</h3>
-                  <p className="cfg-card-subtitle">Escolha o tema que define a aparência geral do app.</p>
+                  <h3 className="cfg-card-title">{t.settings.personalization.appThemeTitle}</h3>
+                  <p className="cfg-card-subtitle">{t.settings.personalization.appThemeSubtitle}</p>
                 </div>
               </div>
 
@@ -574,7 +628,7 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
 
                         <div className="cfg-theme-info">
                           <span className="cfg-theme-name">{theme.name}</span>
-                          {isSelected && <span className="cfg-theme-status">Atual</span>}
+                          {isSelected && <span className="cfg-theme-status">{t.settings.personalization.customCurrent}</span>}
                         </div>
                       </button>
                     );
@@ -590,8 +644,8 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                   <Palette className="cfg-card-icon" size={20} />
                 </div>
                 <div>
-                  <h3 className="cfg-card-title">Cor de destaque</h3>
-                  <p className="cfg-card-subtitle">Escolha a cor que será usada em botões, seletores e elementos interativos.</p>
+                  <h3 className="cfg-card-title">{t.settings.personalization.accentColorTitle}</h3>
+                  <p className="cfg-card-subtitle">{t.settings.personalization.accentColorSubtitle}</p>
                 </div>
               </div>
               <div className="cfg-card-content">
@@ -609,6 +663,7 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                     { id: "gradient_cyberpunk", name: "Gradiente Cyberpunk Pink/Roxo", bg: "linear-gradient(135deg, #ec4899, #8b5cf6)" },
                     { id: "gradient_ocean", name: "Gradiente Oceano Ciano/Azul", bg: "linear-gradient(135deg, #06b6d4, #3b82f6)" },
                     { id: "gradient_aurora", name: "Gradiente Aurora Esmeralda/Ciano", bg: "linear-gradient(135deg, #10b981, #06b6d4)" },
+                    { id: "gradient_flow", name: "✨ Cosmic Flow (Gradiente Animado)", bg: "linear-gradient(135deg, #00f2fe, #7928ca, #ff007a)" },
                   ].map((item) => (
                     <button
                       key={item.id}
@@ -626,29 +681,21 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
 
             {/* Card 3: Animações e Efeitos da Interface */}
             <div className="cfg-card">
-              <div className="cfg-card-header">
-                <div className="cfg-card-icon-box">
-                  <Sparkles className="cfg-card-icon" size={18} />
-                </div>
-                <div>
-                  <h3 className="cfg-card-title">Animações da Interface</h3>
-                  <p className="cfg-card-subtitle">Personalize a fluidez dos movimentos e efeitos visuais do aplicativo.</p>
-                </div>
-              </div>
-              <div className="cfg-card-content cfg-list-items">
-                <div className="cfg-item-row">
-                  <div className="cfg-item-left">
-                    <div>
-                      <strong className="cfg-item-label">Animações da barra lateral</strong>
-                      <span className="cfg-item-desc">Ativa a transição suave e o movimento fluido do seletor no menu lateral.</span>
-                    </div>
+              <div className="cfg-card-header" style={{ justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <div className="cfg-card-icon-box">
+                    <Sparkles className="cfg-card-icon" size={18} />
                   </div>
-                  <div className="cfg-item-right">
-                    <Toggle
-                      checked={draft.sidebarAnimation ?? true}
-                      onChange={(value) => update("sidebarAnimation", value)}
-                    />
+                  <div>
+                    <h3 className="cfg-card-title">{t.settings.personalization.interfaceAnimTitle}</h3>
+                    <p className="cfg-card-subtitle">{t.settings.personalization.interfaceAnimSubtitle}</p>
                   </div>
+                </div>
+                <div className="cfg-item-right">
+                  <Toggle
+                    checked={draft.sidebarAnimation ?? true}
+                    onChange={(value) => update("sidebarAnimation", value)}
+                  />
                 </div>
               </div>
             </div>
@@ -681,8 +728,8 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                       <Folder className="cfg-card-icon" size={18} />
                     </div>
                     <div>
-                      <h3 className="cfg-card-title">Categorias Personalizadas</h3>
-                      <p className="cfg-card-subtitle">Crie pastas para organizar automaticamente os arquivos baixados.</p>
+                      <h3 className="cfg-card-title">{t.settings.filesTab.customCategoriesTitle}</h3>
+                      <p className="cfg-card-subtitle">{t.settings.filesTab.customCategoriesSubtitle}</p>
                     </div>
                   </div>
 
@@ -692,7 +739,7 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                       <input
                         type="text"
                         className="cfg-cat-input"
-                        placeholder="Nome, por exemplo: Jogos"
+                        placeholder={t.settings.filesTab.categoryNamePlaceholder}
                         value={categoryName}
                         onChange={(e) => setCategoryName(e.target.value)}
                         maxLength={60}
@@ -700,7 +747,7 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                       <input
                         type="text"
                         className="cfg-cat-input"
-                        placeholder="Extensões: iso, rom, pkg"
+                        placeholder={t.settings.filesTab.categoryExtPlaceholder}
                         value={categoryExtensions}
                         onChange={(e) => setCategoryExtensions(e.target.value)}
                       />
@@ -711,7 +758,7 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                         disabled={!categoryName.trim()}
                       >
                         <Plus size={14} />
-                        <span>Adicionar categoria</span>
+                        <span>{t.settings.filesTab.addCategory}</span>
                       </button>
                     </div>
 
@@ -720,16 +767,16 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                       <table className="cfg-cat-table">
                         <thead>
                           <tr>
-                            <th>Categoria</th>
-                            <th>Extensões</th>
-                            <th className="text-right">Ações</th>
+                            <th>{t.settings.filesTab.tableColCategory}</th>
+                            <th>{t.settings.filesTab.tableColExtensions}</th>
+                            <th className="text-right">{t.settings.filesTab.tableColActions}</th>
                           </tr>
                         </thead>
                         <tbody>
                           {draft.customCategories.length === 0 ? (
                             <tr>
                               <td colSpan={3} style={{ textAlign: "center", color: "var(--muted)", padding: "20px" }}>
-                                Nenhuma categoria personalizada cadastrada.
+                                {t.settings.filesTab.noCategories}
                               </td>
                             </tr>
                           ) : (
@@ -772,7 +819,7 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                                         type="button"
                                         className="cfg-cat-action-btn edit"
                                         onClick={() => saveEditCategory(cat.id)}
-                                        title="Salvar alterações"
+                                        title={t.settings.filesTab.saveChangesTooltip}
                                         style={{ color: "var(--ember, #22d3ee)" }}
                                       >
                                         <Check size={13} />
@@ -782,7 +829,7 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                                         type="button"
                                         className="cfg-cat-action-btn edit"
                                         onClick={() => startEditCategory(cat)}
-                                        title="Editar categoria"
+                                        title={t.settings.filesTab.editCategoryTooltip}
                                       >
                                         <Pencil size={13} />
                                       </button>
@@ -791,7 +838,7 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                                       type="button"
                                       className="cfg-cat-action-btn delete"
                                       onClick={() => removeCategory(cat.id)}
-                                      title="Excluir categoria"
+                                      title={t.settings.filesTab.deleteCategoryTooltip}
                                     >
                                       <Trash2 size={13} />
                                     </button>
@@ -813,10 +860,9 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                       <Info size={16} />
                     </div>
                     <div className="cfg-info-text-group">
-                      <strong className="cfg-info-title">Sobre as categorias</strong>
+                      <strong className="cfg-info-title">{t.settings.filesTab.aboutCategoriesTitle}</strong>
                       <p className="cfg-info-desc">
-                        Os arquivos serão movidos para a pasta correspondente com base nas extensões informadas.<br />
-                        Use vírgula para separar múltiplas extensões: ex: mp4, mkv, avi
+                        {t.settings.filesTab.aboutCategoriesDesc}
                       </p>
                     </div>
                   </div>
@@ -831,8 +877,8 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                       <Folder className="cfg-card-icon" size={18} />
                     </div>
                     <div>
-                      <h3 className="cfg-card-title">Organização de Arquivos</h3>
-                      <p className="cfg-card-subtitle">Defina como seus arquivos baixados serão organizados.</p>
+                      <h3 className="cfg-card-title">{t.settings.filesTab.fileOrgTitle}</h3>
+                      <p className="cfg-card-subtitle">{t.settings.filesTab.fileOrgSubtitle}</p>
                     </div>
                   </div>
 
@@ -840,8 +886,8 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                     <div className="cfg-item-row">
                       <div className="cfg-item-left">
                         <div>
-                          <strong className="cfg-item-label">Criar subpastas por categoria</strong>
-                          <span className="cfg-item-desc">Organiza os downloads em pastas por tipo de arquivo.</span>
+                          <strong className="cfg-item-label">{t.settings.filesTab.createSubfoldersLabel}</strong>
+                          <span className="cfg-item-desc">{t.settings.filesTab.createSubfoldersDesc}</span>
                         </div>
                       </div>
                       <div className="cfg-item-right">
@@ -855,8 +901,8 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                     <div className="cfg-item-row">
                       <div className="cfg-item-left">
                         <div>
-                          <strong className="cfg-item-label">Renomear arquivos automaticamente</strong>
-                          <span className="cfg-item-desc">Usa o nome original do conteúdo quando disponível.</span>
+                          <strong className="cfg-item-label">{t.settings.filesTab.autoRenameLabel}</strong>
+                          <span className="cfg-item-desc">{t.settings.filesTab.autoRenameDesc}</span>
                         </div>
                       </div>
                       <div className="cfg-item-right">
@@ -870,8 +916,8 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                     <div className="cfg-item-row">
                       <div className="cfg-item-left">
                         <div>
-                          <strong className="cfg-item-label">Evitar arquivos duplicados</strong>
-                          <span className="cfg-item-desc">Se um arquivo já existir, adiciona um sufixo (ex: nome (1), nome (2)).</span>
+                          <strong className="cfg-item-label">{t.settings.filesTab.preventDuplicatesLabel}</strong>
+                          <span className="cfg-item-desc">{t.settings.filesTab.preventDuplicatesDesc}</span>
                         </div>
                       </div>
                       <div className="cfg-item-right">
@@ -892,34 +938,29 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
         {activeTab === "idioma" && (
           <div className="cfg-tab-view">
             <div className="cfg-card">
-              <div className="cfg-card-header">
-                <div className="cfg-card-icon-box">
-                  <Globe className="cfg-card-icon" size={20} />
-                </div>
-                <div>
-                  <h3 className="cfg-card-title">Idioma da Interface</h3>
-                  <p className="cfg-card-subtitle">Selecione o idioma utilizado nos textos do aplicativo.</p>
-                </div>
-              </div>
-              <div className="cfg-card-content cfg-list-items">
-                <div className="cfg-item-row">
-                  <div className="cfg-item-left">
-                    <Globe size={18} className="cfg-item-icon" />
-                    <div>
-                      <strong className="cfg-item-label">Idioma do aplicativo</strong>
-                      <span className="cfg-item-desc">Define a linguagem de menus e notificações.</span>
-                    </div>
+              <div className="cfg-card-header" style={{ justifyContent: "space-between", width: "100%" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <div className="cfg-card-icon-box">
+                    <Globe className="cfg-card-icon" size={20} />
                   </div>
-                  <div className="cfg-item-right">
-                    <CustomSelect
-                      value={draft.language}
-                      options={[
-                        { value: "pt-BR", label: "Português (Brasil)" },
-                        { value: "en-US", label: "English (US)" },
-                      ]}
-                      onChange={(val) => update("language", val as AppLanguage)}
-                    />
+                  <div>
+                    <h3 className="cfg-card-title">{t.settings.languageTab.title}</h3>
+                    <p className="cfg-card-subtitle">{t.settings.languageTab.subtitle}</p>
                   </div>
+                </div>
+                <div className="cfg-item-right">
+                  <CustomSelect
+                    value={draft.language}
+                    options={[
+                      { value: "pt-BR", label: t.settings.languageTab.ptBR },
+                      { value: "en-US", label: t.settings.languageTab.enUS },
+                    ]}
+                    onChange={(val) => {
+                      const newLang = val as AppLanguage;
+                      setLanguage(newLang);
+                      update("language", newLang);
+                    }}
+                  />
                 </div>
               </div>
             </div>
@@ -935,8 +976,8 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                   <Settings2 className="cfg-card-icon" size={20} />
                 </div>
                 <div>
-                  <h3 className="cfg-card-title">Inicialização e Tray Mode</h3>
-                  <p className="cfg-card-subtitle">Defina a integração do aplicativo com o sistema operacional.</p>
+                  <h3 className="cfg-card-title">{t.settings.advancedTab.startupTrayTitle}</h3>
+                  <p className="cfg-card-subtitle">{t.settings.advancedTab.startupTraySubtitle}</p>
                 </div>
               </div>
               <div className="cfg-card-content cfg-list-items">
@@ -944,24 +985,8 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                   <div className="cfg-item-left">
                     <Settings2 size={18} className="cfg-item-icon" />
                     <div>
-                      <strong className="cfg-item-label">Inicializar em tray mode</strong>
-                      <span className="cfg-item-desc">Inicia o SF Downloader oculto na bandeja do sistema.</span>
-                    </div>
-                  </div>
-                  <div className="cfg-item-right">
-                    <Toggle
-                      checked={draft.startInTrayMode}
-                      onChange={(value) => update("startInTrayMode", value)}
-                    />
-                  </div>
-                </div>
-
-                <div className="cfg-item-row">
-                  <div className="cfg-item-left">
-                    <Settings2 size={18} className="cfg-item-icon" />
-                    <div>
-                      <strong className="cfg-item-label">Iniciar com o Windows</strong>
-                      <span className="cfg-item-desc">Abre o aplicativo automaticamente ao ligar o computador.</span>
+                      <strong className="cfg-item-label">{t.settings.advancedTab.launchOnStartupLabel}</strong>
+                      <span className="cfg-item-desc">{t.settings.advancedTab.launchOnStartupDesc}</span>
                     </div>
                   </div>
                   <div className="cfg-item-right">
@@ -979,8 +1004,8 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                   <div className="cfg-item-left">
                     <Bot size={18} className="cfg-item-icon" />
                     <div>
-                      <strong className="cfg-item-label">Assistente de IA Flutuante</strong>
-                      <span className="cfg-item-desc">Exibe o botão flutuante de inteligência artificial na tela principal.</span>
+                      <strong className="cfg-item-label">{t.settings.advancedTab.floatingAiLabel}</strong>
+                      <span className="cfg-item-desc">{t.settings.advancedTab.floatingAiDesc}</span>
                     </div>
                   </div>
                   <div className="cfg-item-right">
@@ -1000,17 +1025,17 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                     <Globe className="cfg-card-icon" size={20} />
                   </div>
                   <div>
-                    <h3 className="cfg-card-title">Integração de Navegadores</h3>
-                    <p className="cfg-card-subtitle">Captação automática de links nos navegadores web.</p>
+                    <h3 className="cfg-card-title">{t.settings.advancedTab.browserIntegrationCardTitle}</h3>
+                    <p className="cfg-card-subtitle">{t.settings.advancedTab.browserIntegrationCardSubtitle}</p>
                   </div>
                 </div>
                 <span className="cfg-autosave" style={{ fontSize: "11px", height: "fit-content" }}>
-                  Extensão v0.3.1
+                  {t.settings.advancedTab.extensionBadge}
                 </span>
               </div>
               <div className="cfg-card-content">
                 <p style={{ fontSize: "12.5px", color: "var(--text-2)", marginBottom: "12px" }}>
-                  Instale a extensão oficial do SF Downloader (versão <strong>v0.3.1</strong>) para capturar downloads nos navegadores Chromium (Chrome, Edge, Opera, Brave, Vivaldi) e Firefox.
+                  {t.settings.advancedTab.extensionCardDesc}
                 </p>
                 <button
                   type="button"
@@ -1018,7 +1043,7 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                   onClick={openBrowserIntegration}
                 >
                   <Globe size={15} />
-                  <span>Configurar Integração</span>
+                  <span>{t.settings.advancedTab.configureIntegrationBtn}</span>
                 </button>
               </div>
             </div>

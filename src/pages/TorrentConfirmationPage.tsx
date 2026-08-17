@@ -22,6 +22,7 @@ import { Toggle } from "../components/ui/Toggle";
 import { loadSettings } from "../services/settingsStorage";
 import * as service from "../services/downloadService";
 import type { TorrentMetadataResponse } from "../services/downloadService";
+import { useTranslation } from "../i18n";
 
 interface Payload {
   url: string;
@@ -73,15 +74,17 @@ function getFileItemIcon(filename: string) {
 }
 
 export function TorrentConfirmationPage({ token }: { token: string }) {
+  const { t } = useTranslation();
   const storageKey = `sf-downloader.confirmation-${token}`;
   const payload = useMemo(() => {
     try {
-      return JSON.parse(localStorage.getItem(storageKey) || "") as Payload;
+      return JSON.parse(
+        localStorage.getItem(storageKey) || "",
+      ) as Payload;
     } catch {
       return null;
     }
   }, [storageKey]);
-
   const appWindow = getCurrentWindow();
   const settings = useMemo(loadSettings, []);
 
@@ -529,7 +532,7 @@ export function TorrentConfirmationPage({ token }: { token: string }) {
 
         <div className="tc-footer-right">
           <button type="button" className="tc-btn-dark" onClick={close}>
-            Cancelar
+            {t.common.cancel}
           </button>
           <button
             type="button"
@@ -538,7 +541,7 @@ export function TorrentConfirmationPage({ token }: { token: string }) {
             disabled={busy || status !== "ready" || !!error || totalSize === 0 || fileList.length === 0 || selectedCount === 0}
           >
             <Plus size={16} />
-            <span>Adicionar torrent</span>
+            <span>{t.confirmation.startDownload}</span>
           </button>
         </div>
       </footer>

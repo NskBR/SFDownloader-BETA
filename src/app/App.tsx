@@ -13,6 +13,7 @@ import * as downloadService from "../services/downloadService";
 import { applyThemeSettings } from "../services/theme";
 import { FloatingAiWidget } from "../components/ui/FloatingAiWidget";
 import { UpdateBanner } from "../components/UpdateBanner";
+import { SplashScreen } from "../components/ui/SplashScreen";
 interface BrowserDownloadRequest { requestId:string;url:string;fileName:string|null;fileSize:number|null;mimeType:string|null }
 const categoryPages:PageId[]=["downloads","active","completed","documents","music","videos","archives","applications","torrents","calculator"];
 const normalizePage=(page:PageId):PageId=>({home:"downloads",organization:"settings",active:"downloads",completed:"downloads"} as Partial<Record<PageId,PageId>>)[page]??page;
@@ -23,6 +24,19 @@ export function App() {
   const { settings, persist, saved } = useSettings();
   const processedLinks=useRef(new Set<string>(JSON.parse(sessionStorage.getItem("sf-downloader.processed-links")||"[]")));
   const [updateInfo, setUpdateInfo] = useState<downloadService.UpdateCheckResult | null>(null);
+  const [splashVisible, setSplashVisible] = useState(true);
+  const [splashFading, setSplashFading] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSplashFading(true);
+      const removeTimer = setTimeout(() => {
+        setSplashVisible(false);
+      }, 450);
+      return () => clearTimeout(removeTimer);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     void downloadService
@@ -50,6 +64,7 @@ export function App() {
     : <DownloadsPage settings={settings} onSave={persist} filter={categoryPages.includes(activePage)?activePage:"active"} />;
    return (
      <>
+       {splashVisible && <SplashScreen fade={splashFading} />}
        <AppShell activePage={activePage} onNavigate={navigate} sidebarAnimation={settings.sidebarAnimation} updateInfo={updateInfo}>{content}</AppShell>
        {!["settings", "metrics", "profile"].includes(activePage) && (settings.showAiAssistant ?? true) && <FloatingAiWidget />}
      </>

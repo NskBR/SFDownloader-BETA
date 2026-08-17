@@ -71,6 +71,11 @@ fn is_autostart_enabled(app: tauri::AppHandle) -> Result<bool, String> {
     app.autolaunch().is_enabled().map_err(|error| error.to_string())
 }
 
+#[tauri::command]
+fn is_autostart_boot() -> bool {
+    std::env::args().any(|arg| arg == "--autostart" || arg == "--minimized" || arg == "--tray")
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -81,7 +86,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            None,
+            Some(vec!["--autostart"]),
         ))
         .setup(|app| {
             let open_item =
@@ -141,6 +146,13 @@ pub fn run() {
             browser_bridge::start(app.handle().clone(), browser_bridge.clone());
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_min_size(Some(tauri::Size::Logical(tauri::LogicalSize::new(1104.0, 611.0))));
+                let is_autostart = std::env::args().any(|arg| arg == "--autostart" || arg == "--minimized" || arg == "--tray");
+                if !is_autostart {
+                    let _ = window.unminimize();
+                    let _ = window.set_skip_taskbar(false);
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
             }
             for id in recovered_ids {
                 let app_handle = app.handle().clone();
@@ -241,6 +253,7 @@ pub fn run() {
             commands::metrics::import_metrics,
             set_autostart,
             is_autostart_enabled,
+            is_autostart_boot,
             download::extraction::extraction_status,
             commands::updater::check_for_updates
         ])

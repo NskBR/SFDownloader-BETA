@@ -13,10 +13,12 @@ import {
   FolderOpen,
 } from "lucide-react";
 import * as service from "../services/downloadService";
+import { useTranslation } from "../i18n";
 
 type Tab = "chromium" | "firefox";
 
 export function BrowserIntegrationPage() {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>("chromium");
   const [chromiumFolder, setChromiumFolder] = useState("");
   const [firefoxFolder, setFirefoxFolder] = useState("");
@@ -38,7 +40,7 @@ export function BrowserIntegrationPage() {
       window.setTimeout(() => setCopied(false), 2000);
     });
   };
-  const xpiFileName = "7c2944a3066543438b23-0.3.2.xpi";
+  const xpiFileName = "7c2944a3066543438b23-0.3.3.xpi";
   const openXpi = () =>
     firefoxFolder && void service.openFile(`${firefoxFolder}/${xpiFileName}`).catch(console.error);
   const close = () => void appWindow.close();
@@ -49,11 +51,11 @@ export function BrowserIntegrationPage() {
         <div className="integr-title">
           <Puzzle size={18} />
           <div>
-            <strong>Integração de Navegadores</strong>
-            <span>Conecte o navegador para capturar downloads no SF Downloader.</span>
+            <strong>{t.browserIntegration.title}</strong>
+            <span>{t.browserIntegration.subtitle}</span>
           </div>
         </div>
-        <button className="integr-close nodrag" onClick={close} title="Fechar">
+        <button className="integr-close nodrag" onClick={close} title={t.common.close}>
           <X size={16} />
         </button>
       </header>
@@ -64,48 +66,47 @@ export function BrowserIntegrationPage() {
           onClick={() => setTab("chromium")}
         >
           <Chrome size={15} />
-          Chromium
-          <span className="integr-tab-sub">Chrome, Edge, Opera, Brave, Vivaldi</span>
+          {t.browserIntegration.chromiumTab}
+          <span className="integr-tab-sub">{t.browserIntegration.chromiumSub}</span>
         </button>
         <button
           className={`integr-tab ${tab === "firefox" ? "active" : ""}`}
           onClick={() => setTab("firefox")}
         >
           <Flame size={15} />
-          Firefox
-          <span className="integr-tab-sub">Instalar arquivo .xpi</span>
+          {t.browserIntegration.firefoxTab}
+          <span className="integr-tab-sub">{t.browserIntegration.firefoxSub}</span>
         </button>
       </div>
 
       <main className="integr-body">
         {tab === "chromium" ? (
           <div className="integr-install">
-            <div className="integr-drop" onMouseDown={(e) => { e.preventDefault(); chromiumFolder && void invoke("start_drag_folder", { path: chromiumFolder }).catch(console.error); }} title="Arraste para a página de extensões do navegador">
+            <div className="integr-drop" onMouseDown={(e) => { e.preventDefault(); chromiumFolder && void invoke("start_drag_folder", { path: chromiumFolder }).catch(console.error); }} title={t.browserIntegration.dragToChromiumTooltip}>
               <div className="integr-drop-icon">
                 <Package size={26} />
               </div>
-              <strong>Arraste para o navegador</strong>
+              <strong>{t.browserIntegration.dragToChromiumTitle}</strong>
               <span>
-                Segure e solte esta peça na página de extensões do seu navegador Chromium.
+                {t.browserIntegration.dragToChromiumDesc}
               </span>
             </div>
 
             <ol className="integr-steps">
               <li>
-                Abra a página de extensões do navegador:
+                {t.browserIntegration.step1Chromium}
                 <div className="integr-code">
                   <code>chrome://extensions</code>
-                  <button className="integr-copy" onClick={() => copy("chrome://extensions")} title="Copiar">
+                  <button className="integr-copy" onClick={() => copy("chrome://extensions")} title={t.common.copy}>
                     {copied ? <Check size={13} /> : <Copy size={13} />}
                   </button>
                 </div>
               </li>
               <li>
-                Ative o <strong>“Modo do desenvolvedor”</strong> no canto superior
-                direito da página.
+                {t.browserIntegration.step2Chromium}
               </li>
               <li>
-                Arraste a peça acima para a página de extensões do navegador.
+                {t.browserIntegration.step3Chromium}
               </li>
             </ol>
           </div>
@@ -118,41 +119,41 @@ export function BrowserIntegrationPage() {
                 e.preventDefault();
                 firefoxFolder && void invoke("start_drag_folder", { path: `${firefoxFolder}/${xpiFileName}` }).catch(console.error);
               }}
-              title="Clique para abrir/instalar no Firefox ou arraste para a aba do navegador"
+              title={t.browserIntegration.dragToFirefoxTooltip}
             >
               <div className="integr-drop-icon">
                 <Package size={26} />
               </div>
-              <strong>{xpiFileName} (Arraste ou Clique)</strong>
+              <strong>{xpiFileName} {t.browserIntegration.dragOrClick}</strong>
               <span>
-                Segure e solte esta peça no Firefox ou clique no botão abaixo para abrir a instalação diretamente.
+                {t.browserIntegration.dragToFirefoxDesc}
               </span>
             </div>
 
             <div className="integr-actions">
-              <button className="primary-button" onClick={openXpi} title="Abrir o arquivo XPI com o Firefox">
+              <button className="primary-button" onClick={openXpi} title={t.browserIntegration.openInFirefox}>
                 <ExternalLink size={15} />
-                Abrir no Firefox
+                {t.browserIntegration.openInFirefox}
               </button>
               <button
                 className="secondary-button"
                 onClick={() => firefoxFolder && void service.revealInFolder(`${firefoxFolder}/${xpiFileName}`)}
-                title="Mostrar arquivo XPI no Explorer"
+                title={t.browserIntegration.openFolderInExplorer}
               >
                 <FolderOpen size={15} />
-                Abrir pasta no Explorer
+                {t.browserIntegration.openFolderInExplorer}
               </button>
             </div>
 
             <ol className="integr-steps">
               <li>
-                Clique no botão <strong>“Abrir no Firefox”</strong> acima para iniciar a instalação no navegador.
+                {t.browserIntegration.step1Firefox}
               </li>
               <li>
-                Ou arraste o card acima para qualquer aba do seu navegador Firefox.
+                {t.browserIntegration.step2Firefox}
               </li>
               <li>
-                Confirme a instalação clicando em <strong>“Continuar com a instalação”</strong> e <strong>“Adicionar”</strong>.
+                {t.browserIntegration.step3Firefox}
               </li>
             </ol>
           </div>

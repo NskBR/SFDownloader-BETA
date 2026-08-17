@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "SF Downloader Integration",
-  "version": "0.3.2",
-  "description": "Integra downloads do Firefox ao SF Downloader.",
+  "version": "0.3.3",
+  "description": "Integra downloads do navegador ao SF Downloader.",
   "permissions": [
     "activeTab",
     "contextMenus",

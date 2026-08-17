@@ -14,6 +14,7 @@ export type AccentColor =
   | "gradient_cyberpunk"
   | "gradient_ocean"
   | "gradient_aurora"
+  | "gradient_flow"
   | "ember"
   | "green";
 export type AppColor = "slate" | "graphite" | "obsidian" | "mint" | "ocean" | "rose";
@@ -79,7 +80,7 @@ export const defaultSettings: AppSettings = {
   speedLimitDownloadMbps: 0,
   theme: "midnight",
   uiScale: 1.1,
-  startInTrayMode: true,
+  startInTrayMode: false,
   launchOnStartup: false,
   language: "pt-BR",
   accentColor: "ember",

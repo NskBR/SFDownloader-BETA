@@ -13,7 +13,7 @@
       <div class="header-titles">
         <div class="title-row">
           <strong>SF Downloader</strong>
-          <span id="version-badge" class="version-badge">v0.3.2</span>
+          <span id="version-badge" class="version-badge">v0.3.3</span>
         </div>
       </div>
     </div>
@@ -26,8 +26,8 @@
     <!-- Card Principal: Ativar/Desativar Captura -->
     <div class="setting-card">
       <div class="setting-info">
-        <strong>Captura automática</strong>
-        <span>Intercepta downloads do navegador</span>
+        <strong id="auto-capture-title">Captura automática</strong>
+        <span id="auto-capture-desc">Intercepta downloads do navegador</span>
       </div>
       <button id="capture" role="switch" aria-checked="false" aria-label="Ativar captura automática">
         <i class="switch-thumb"></i>
@@ -37,11 +37,11 @@
     <!-- Extensões Ignoradas -->
     <section class="exclusion-section">
       <div class="exclusion-header">
-        <strong>Extensões ignoradas</strong>
+        <strong id="ignored-exts-title">Extensões ignoradas</strong>
         <button type="button" id="btn-reset-default" class="reset-link">Restaurar padrão</button>
       </div>
       <textarea id="disabled-extensions-input" class="exclusion-input" rows="2" spellcheck="false" placeholder="Ex: JPG PNG GIF TXT"></textarea>
-      <span class="exclusion-hint">Separar por espaço. Esses formatos serão baixados pelo navegador.</span>
+      <span id="exclusion-hint" class="exclusion-hint">Separar por espaço. Esses formatos serão baixados pelo navegador.</span>
     </section>
 
     <!-- Footer de Status de Conexão -->

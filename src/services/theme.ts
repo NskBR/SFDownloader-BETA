@@ -85,11 +85,87 @@ const accentColors: Record<string, { base: string; solid: string; stop1: string;
   gradient_cyberpunk: { base: "linear-gradient(135deg, #ec4899, #8b5cf6)", solid: "#ec4899", stop1: "#ec4899", stop2: "#8b5cf6", strong: "linear-gradient(135deg, #f472b6, #a78bfa)", soft: "rgba(236, 72, 153, 0.18)" },
   gradient_ocean:     { base: "linear-gradient(135deg, #06b6d4, #3b82f6)", solid: "#06b6d4", stop1: "#06b6d4", stop2: "#3b82f6", strong: "linear-gradient(135deg, #22d3ee, #60a5fa)", soft: "rgba(6, 182, 212, 0.18)" },
   gradient_aurora:    { base: "linear-gradient(135deg, #10b981, #06b6d4)", solid: "#10b981", stop1: "#10b981", stop2: "#06b6d4", strong: "linear-gradient(135deg, #34d399, #22d3ee)", soft: "rgba(16, 185, 129, 0.18)" },
+  gradient_flow:      { base: "linear-gradient(135deg, #00f2fe, #7928ca, #ff007a, #00f2fe)", solid: "#7928ca", stop1: "#00f2fe", stop2: "#ff007a", strong: "linear-gradient(135deg, #00f2fe, #9333ea, #ff007a)", soft: "rgba(121, 40, 202, 0.25)" },
 
   // Compatibilidade legada
   ember:   { base: "#06b6d4", solid: "#06b6d4", stop1: "#06b6d4", stop2: "#22d3ee", strong: "#22d3ee", soft: "rgba(6, 182, 212, 0.16)" },
   green:   { base: "#10b981", solid: "#10b981", stop1: "#10b981", stop2: "#34d399", strong: "#34d399", soft: "rgba(16, 185, 129, 0.16)" },
 };
+
+let cosmicAnimationId: number | null = null;
+
+function hexToRgb(hex: string): [number, number, number] {
+  const clean = hex.replace("#", "");
+  const num = parseInt(clean, 16);
+  return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+}
+
+function lerpColor(c1: [number, number, number], c2: [number, number, number], t: number): [number, number, number] {
+  return [
+    Math.round(c1[0] + (c2[0] - c1[0]) * t),
+    Math.round(c1[1] + (c2[1] - c1[1]) * t),
+    Math.round(c1[2] + (c2[2] - c1[2]) * t),
+  ];
+}
+
+const COSMIC_PALETTE: [number, number, number][] = [
+  hexToRgb("#00f2fe"), // Ciano
+  hexToRgb("#7928ca"), // Roxo / Violeta
+  hexToRgb("#ff007a"), // Fúcsia / Rosa
+];
+
+function startCosmicFlow(root: HTMLElement) {
+  if (cosmicAnimationId !== null) {
+    cancelAnimationFrame(cosmicAnimationId);
+    cosmicAnimationId = null;
+  }
+
+  const duration = 5000; // 5 segundos por ciclo completo
+  let lastUpdate = 0;
+
+  const frame = (time: number) => {
+    if (time - lastUpdate > 16) {
+      lastUpdate = time;
+      const progress = (time % duration) / duration; // 0 a 1
+      const totalStops = COSMIC_PALETTE.length;
+      
+      const scaled1 = progress * totalStops;
+      const idx1 = Math.floor(scaled1);
+      const nextIdx1 = (idx1 + 1) % totalStops;
+      const t1 = scaled1 - idx1;
+      const rgb1 = lerpColor(COSMIC_PALETTE[idx1], COSMIC_PALETTE[nextIdx1], t1);
+      const stop1 = `rgb(${rgb1[0]}, ${rgb1[1]}, ${rgb1[2]})`;
+
+      const scaled2 = ((progress + 0.38) % 1) * totalStops;
+      const idx2 = Math.floor(scaled2);
+      const nextIdx2 = (idx2 + 1) % totalStops;
+      const t2 = scaled2 - idx2;
+      const rgb2 = lerpColor(COSMIC_PALETTE[idx2], COSMIC_PALETTE[nextIdx2], t2);
+      const stop2 = `rgb(${rgb2[0]}, ${rgb2[1]}, ${rgb2[2]})`;
+
+      const grad = `linear-gradient(135deg, ${stop1}, ${stop2})`;
+      const soft = `rgba(${rgb1[0]}, ${rgb1[1]}, ${rgb1[2]}, 0.22)`;
+
+      root.style.setProperty("--ember", grad);
+      root.style.setProperty("--ember-solid", stop1);
+      root.style.setProperty("--ember-stop-1", stop1);
+      root.style.setProperty("--ember-stop-2", stop2);
+      root.style.setProperty("--ember-strong", grad);
+      root.style.setProperty("--ember-soft", soft);
+      root.style.setProperty("--st-downloading", stop1);
+    }
+    cosmicAnimationId = requestAnimationFrame(frame);
+  };
+
+  cosmicAnimationId = requestAnimationFrame(frame);
+}
+
+function stopCosmicFlow() {
+  if (cosmicAnimationId !== null) {
+    cancelAnimationFrame(cosmicAnimationId);
+    cosmicAnimationId = null;
+  }
+}
 
 export function applyThemeSettings(settings: AppSettings): void {
   const root = document.documentElement;
@@ -98,13 +174,20 @@ export function applyThemeSettings(settings: AppSettings): void {
   root.dataset.accent = settings.accentColor;
   root.style.setProperty("--ui-scale", `${settings.uiScale}`);
 
-  const a = accentColors[settings.accentColor] ?? accentColors.ember;
-  root.style.setProperty("--ember", a.base);
-  root.style.setProperty("--ember-solid", a.solid);
-  root.style.setProperty("--ember-stop-1", a.stop1);
-  root.style.setProperty("--ember-stop-2", a.stop2);
-  root.style.setProperty("--ember-strong", a.strong);
-  root.style.setProperty("--ember-soft", a.soft);
+  if (settings.accentColor === "gradient_flow" && settings.sidebarAnimation !== false) {
+    startCosmicFlow(root);
+  } else {
+    stopCosmicFlow();
+    const a = accentColors[settings.accentColor] ?? accentColors.ember;
+    root.style.setProperty("--ember", a.base);
+    root.style.setProperty("--ember-solid", a.solid);
+    root.style.setProperty("--ember-stop-1", a.stop1);
+    root.style.setProperty("--ember-stop-2", a.stop2);
+    root.style.setProperty("--ember-strong", a.strong);
+    root.style.setProperty("--ember-soft", a.soft);
+    root.style.setProperty("--st-downloading", a.solid);
+  }
+
   root.style.setProperty("--st-completed", "#00b884");
   root.style.setProperty("--st-failed", "#ef4444");
   root.style.setProperty("--st-cancelled", "#ef4444");

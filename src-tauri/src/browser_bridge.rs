@@ -28,6 +28,7 @@ pub struct BrowserBridge {
     last_seen: Arc<AtomicU64>,
     theme_accent: Arc<Mutex<Option<String>>>,
     theme_bg: Arc<Mutex<Option<String>>>,
+    language: Arc<Mutex<Option<String>>>,
 }
 
 impl Default for BrowserBridge {
@@ -38,6 +39,7 @@ impl Default for BrowserBridge {
             last_seen: Arc::new(AtomicU64::new(0)),
             theme_accent: Arc::new(Mutex::new(None)),
             theme_bg: Arc::new(Mutex::new(None)),
+            language: Arc::new(Mutex::new(None)),
         }
     }
 }
@@ -50,12 +52,17 @@ impl BrowserBridge {
             .unwrap_or(0)
     }
 
-    pub fn set_theme(&self, accent: String, bg: String) {
+    pub fn set_theme(&self, accent: String, bg: String, language: Option<String>) {
         if let Ok(mut a) = self.theme_accent.lock() {
             *a = Some(accent);
         }
         if let Ok(mut b) = self.theme_bg.lock() {
             *b = Some(bg);
+        }
+        if let Some(lang) = language {
+            if let Ok(mut l) = self.language.lock() {
+                *l = Some(lang);
+            }
         }
     }
 
@@ -142,6 +149,7 @@ struct SyncResponse {
     blocked_hosts: Vec<&'static str>,
     theme_accent: Option<String>,
     theme_bg: Option<String>,
+    language: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -224,6 +232,7 @@ async fn sync(State(state): State<BridgeState>) -> impl IntoResponse {
     headers.insert("access-control-allow-origin", HeaderValue::from_static("*"));
     let theme_accent = state.bridge.theme_accent.lock().ok().and_then(|guard| guard.clone());
     let theme_bg = state.bridge.theme_bg.lock().ok().and_then(|guard| guard.clone());
+    let language = state.bridge.language.lock().ok().and_then(|guard| guard.clone());
     (
         headers,
         Json(SyncResponse {
@@ -231,7 +240,7 @@ async fn sync(State(state): State<BridgeState>) -> impl IntoResponse {
             token: state.bridge.token.clone(),
             file_exts: vec![
                 // Imagens
-                ".JPG", ".JPEG", ".PNG", ".WEBP", ".GIF", ".BMP", ".ICO", ".SVG", ".TIFF", ".HEIC",
+                ".JPG", ".JPEG", ".PNG", ".WEBP", ".GIF", ".BMP", ".TIFF", ".HEIC",
                 // Vídeos
                 ".MP4", ".MKV", ".MOV", ".AVI", ".WEBM", ".FLV", ".WMV", ".M4V", ".3GP", ".TS",
                 // Áudios
@@ -254,6 +263,7 @@ async fn sync(State(state): State<BridgeState>) -> impl IntoResponse {
             blocked_hosts: vec![],
             theme_accent,
             theme_bg,
+            language,
         }),
     )
 }
@@ -264,8 +274,13 @@ pub fn browser_extension_status(bridge: tauri::State<'_, BrowserBridge>) -> bool
 }
 
 #[tauri::command]
-pub fn update_extension_theme(bridge: tauri::State<'_, BrowserBridge>, accent: String, bg: String) {
-    bridge.set_theme(accent, bg);
+pub fn update_extension_theme(
+    bridge: tauri::State<'_, BrowserBridge>,
+    accent: String,
+    bg: String,
+    language: Option<String>,
+) {
+    bridge.set_theme(accent, bg, language);
 }
 
 async fn download(State(state): State<BridgeState>, body: Bytes) -> impl IntoResponse {

@@ -1,9 +1,7 @@
 const MENU_ID = "sf-downloader-download";
 const BRIDGE = "http://127.0.0.1:17831";
 
-// Tipos desativados por padrão de fábrica (ficam no navegador, não viram
-// download no app). Imagens e textos costumam ser abertos/visualizados, não
-// baixados, então não interceptamos a menos que o usuário ative.
+// Tipos desativados por padrão de fábrica
 const DEFAULT_DISABLED_EXTENSIONS = [
   ".JPG",
   ".JPEG",
@@ -11,6 +9,58 @@ const DEFAULT_DISABLED_EXTENSIONS = [
   ".WEBP",
   ".GIF",
   ".TXT",
+];
+
+// Extensões de recursos internos da web que NUNCA devem ser capturados automaticamente como downloads
+const BLOCKED_ASSET_EXTENSIONS = new Set([
+  // Páginas web e scripts de servidor
+  "HTML", "HTM", "XHTML", "PHP", "ASP", "ASPX", "JSP", "CGI", "PL", "PY", "SH", "BAT", "CMD",
+  // Folhas de estilo, scripts JavaScript, source maps, WebAssembly
+  "CSS", "JS", "MJS", "CJS", "MAP", "TS", "TSX", "JSX", "WASM",
+  // Dados e APIs
+  "JSON", "XML",
+  // Fontes web (evita que Google Fonts / buscas no Google abram downloads)
+  "WOFF", "WOFF2", "TTF", "OTF", "EOT", "PFB", "PFM", "AFM",
+  // Ícones e gráficos de páginas web carregados como assets
+  "ICO", "CUR", "SVG",
+  // Manifestos e feeds
+  "MANIFEST", "WEBMANIFEST", "RSS", "ATOM"
+]);
+
+// MIME types de recursos da web que nunca devem ser interceptados
+const BLOCKED_MIME_LIST = [
+  "text/html",
+  "application/xhtml+xml",
+  "text/javascript",
+  "application/javascript",
+  "text/ecmascript",
+  "application/x-javascript",
+  "text/css",
+  "application/json",
+  "text/json",
+  "text/xml",
+  "application/xml",
+  "font/",
+  "application/font",
+  "application/x-font",
+  "application/vnd.ms-fontobject",
+  "image/x-icon",
+  "image/vnd.microsoft.icon"
+];
+
+// Padrões de domínios conhecidos de CDNs de fontes, telemetria e assets estáticos
+const BLOCKED_HOST_PATTERNS = [
+  "fonts.gstatic.com",
+  "fonts.googleapis.com",
+  "gstatic.com",
+  "cdnjs.cloudflare.com",
+  "cdn.jsdelivr.net",
+  "unpkg.com",
+  "ajax.googleapis.com",
+  "update.microsoft.com",
+  "windowsupdate.com",
+  "telemetry",
+  "analytics"
 ];
 
 let bridge = { connected: false, token: "", fileExts: [], blockedHosts: [] };
@@ -23,6 +73,19 @@ const interceptedUrls = new Map();
 
 const validUrl = url => /^(https?:\/\/|magnet:\?)/i.test(url || "") || (url || "").startsWith("magnet:");
 
+function isBlockedHost(url) {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    if (host === "127.0.0.1" || host === "localhost") return true;
+    if (BLOCKED_HOST_PATTERNS.some(pattern => host.includes(pattern))) return true;
+    if ((bridge.blockedHosts || []).some(bh => host.includes(bh.toLowerCase()))) return true;
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 // Tracks URLs already taken over so a single browser download is not sent to
 // the app twice (once via onHeadersReceived, once via onDeterminingFilename).
 function markInterceptedUrl(url) {
@@ -34,9 +97,11 @@ function markInterceptedUrl(url) {
     }
   }, 5000);
 }
+
 function wasInterceptedUrl(url) {
   return Boolean(url) && interceptedUrls.has(url);
 }
+
 const normalizeExtension = value => {
   const cleaned = String(value || "").trim().toUpperCase();
   if (!cleaned) return "";
@@ -58,11 +123,28 @@ function saveBridgeToStorage() {
     fileExts: bridge.fileExts || [],
     blockedHosts: bridge.blockedHosts || [],
     themeAccent: bridge.themeAccent || null,
-    themeBg: bridge.themeBg || null
+    themeBg: bridge.themeBg || null,
+    language: bridge.language || "pt-BR"
   });
 }
 
-function updateExtensionIcon(connected) {
+function updateContextMenu(language) {
+  const isEn = (language || "").toLowerCase().startsWith("en");
+  const title = isEn ? "Download with SF Downloader" : "Baixar com SF Downloader";
+  try {
+    if (chrome.contextMenus && typeof chrome.contextMenus.update === "function") {
+      chrome.contextMenus.update(MENU_ID, { title }, () => {
+        if (chrome.runtime.lastError) {
+          chrome.contextMenus.removeAll(() => {
+            chrome.contextMenus.create({ id: MENU_ID, title, contexts: ["link", "video", "audio", "image"] }, () => void chrome.runtime.lastError);
+          });
+        }
+      });
+    }
+  } catch {}
+}
+
+function updateExtensionIcon(connected, language = bridge.language) {
   const actionAPI = chrome.action || chrome.browserAction;
   if (!actionAPI) return;
 
@@ -70,9 +152,10 @@ function updateExtensionIcon(connected) {
     ? { 32: "icons/sf-small.png", 128: "icons/sf-large.png" }
     : { 32: "icons/sf-small-off.png", 128: "icons/sf-large-off.png" };
 
+  const isEn = (language || "").toLowerCase().startsWith("en");
   const title = connected
-    ? "SF Downloader (Conectado)"
-    : "SF Downloader (Desconectado / App Fechado)";
+    ? (isEn ? "SF Downloader (Connected)" : "SF Downloader (Conectado)")
+    : (isEn ? "SF Downloader (Disconnected / App Closed)" : "SF Downloader (Desconectado / App Fechado)");
 
   try {
     if (typeof actionAPI.setIcon === "function") {
@@ -89,7 +172,7 @@ let syncPromise = null;
 function syncBridge() {
   if (syncPromise) return syncPromise;
   syncPromise = (async () => {
-    const { captureEnabled = captureEnabledState, disabledExtensions = disabledExtensionsState } = await storageGet(["captureEnabled", "disabledExtensions"]);
+    const { captureEnabled = captureEnabledState, disabledExtensions = disabledExtensionsState, language: savedLang } = await storageGet(["captureEnabled", "disabledExtensions", "language"]);
     captureEnabledState = captureEnabled;
     disabledExtensionsState = disabledExtensions || [];
     if (!captureEnabledState) {
@@ -98,7 +181,7 @@ function syncBridge() {
       }
       bridge.connected = false;
       saveBridgeToStorage();
-      updateExtensionIcon(false);
+      updateExtensionIcon(false, savedLang || bridge.language);
       return;
     }
 
@@ -111,15 +194,17 @@ function syncBridge() {
         ...data,
         themeAccent: data.themeAccent || null,
         themeBg: data.themeBg || null,
+        language: data.language || savedLang || "pt-BR",
         allFileExts: (data.fileExts || []).map(normalizeExtension).filter(Boolean),
         fileExts: applyExtensionFilters(data.fileExts, disabledExtensionsState)
       };
       saveBridgeToStorage();
-      updateExtensionIcon(true);
+      updateExtensionIcon(true, bridge.language);
+      updateContextMenu(bridge.language);
     } catch {
       bridge.connected = false;
       saveBridgeToStorage();
-      updateExtensionIcon(false);
+      updateExtensionIcon(false, savedLang || bridge.language);
     }
   })().finally(() => {
     syncPromise = null;
@@ -142,29 +227,26 @@ function isExtensionExcluded(ext) {
 function shouldTakeOver(url, filename) {
   if (!bridge.connected || !validUrl(url)) return false;
   if (url.startsWith("magnet:")) return true;
-  const parsed = new URL(url);
-  if ((bridge.blockedHosts || []).some(host => parsed.host.includes(host))) return false;
+  if (isBlockedHost(url)) return false;
 
-  const target = (filename || parsed.pathname).toUpperCase();
-  // Strip query parameters
+  const target = (filename || url).toUpperCase();
   const cleanTarget = target.split("?")[0].split("#")[0];
   const ext = cleanTarget.includes(".") ? cleanTarget.substring(cleanTarget.lastIndexOf(".") + 1) : "";
   if (!ext) return false;
 
-  // Block web page extensions
-  if (["HTML", "HTM", "PHP", "ASP", "ASPX", "JSP"].includes(ext)) return false;
+  // Block web asset extensions
+  if (BLOCKED_ASSET_EXTENSIONS.has(ext)) return false;
 
   // Check user exclusion list
   if (isExtensionExcluded(ext)) return false;
 
-  // Accept all other file extensions
   return true;
 }
 
 function shouldInterceptHeaders(info) {
   if (!bridge.connected) return null;
 
-  // Block POST requests (same as XDM's shouldInterceptFile)
+  // Block non-GET requests (same as XDM)
   if (info.method && info.method !== "GET") return null;
 
   // Only intercept successful responses
@@ -172,10 +254,7 @@ function shouldInterceptHeaders(info) {
 
   const url = info.url;
   if (!validUrl(url)) return null;
-
-  const parsed = new URL(url);
-  if (parsed.host === "127.0.0.1:17831" || parsed.host === "localhost:17831") return null;
-  if ((bridge.blockedHosts || []).some(host => parsed.host.includes(host))) return null;
+  if (isBlockedHost(url)) return null;
 
   // Parse response headers
   let filename = null;
@@ -213,41 +292,57 @@ function shouldInterceptHeaders(info) {
     }
   }
 
-  // Block web content MIME types
-  const blockedMimeList = [
-    "text/html", "application/xhtml+xml",
-    "text/javascript", "application/javascript",
-    "text/css",
-    "application/json",
-    "text/xml", "application/xml"
-  ];
-  if (mimeType && blockedMimeList.some(blocked => mimeType.includes(blocked))) {
+  // Block web content & font/asset MIME types
+  if (mimeType && BLOCKED_MIME_LIST.some(blocked => mimeType.includes(blocked) || mimeType.startsWith(blocked))) {
     return null;
   }
 
   // Extract extension from filename or URL path
-  let ext = null;
+  let ext = "";
   if (filename && filename.includes(".")) {
     ext = filename.substring(filename.lastIndexOf(".") + 1).toUpperCase();
   } else {
-    const pathFile = parsed.pathname.split("/").pop()?.split("?")[0] || "";
-    if (pathFile.includes(".")) {
-      ext = pathFile.substring(pathFile.lastIndexOf(".") + 1).toUpperCase();
-    }
+    try {
+      const parsed = new URL(url);
+      const pathFile = parsed.pathname.split("/").pop()?.split("?")[0] || "";
+      if (pathFile.includes(".")) {
+        ext = pathFile.substring(pathFile.lastIndexOf(".") + 1).toUpperCase();
+      }
+    } catch {}
   }
 
   if (ext) {
-    if (["HTML", "HTM", "PHP", "ASP", "ASPX", "JSP"].includes(ext)) return null;
-    if (isExtensionExcluded(ext)) return null;
+    ext = ext.split("?")[0].split("#")[0].trim();
+  }
+
+  // Never intercept blocked web assets (fonts, icons, stylesheets, scripts, pages)
+  if (ext && BLOCKED_ASSET_EXTENSIONS.has(ext)) {
+    return null;
+  }
+
+  // Check user exclusion list
+  if (ext && isExtensionExcluded(ext)) {
+    return null;
+  }
+
+  // CRITICAL RULE (from XDM / IDM):
+  // In onHeadersReceived, normal page assets (font, script, stylesheet, image, xmlhttprequest, ping, other)
+  // must NEVER be intercepted unless the server explicitly declared 'Content-Disposition: attachment'.
+  const isTopNavigation = info.type === "main_frame";
+
+  if (isAttachment) {
+    // Explicit server attachment download
     return { filename, fileSize, mimeType };
   }
 
-  // Forced attachment download without explicit extension
-  const isNavigation = info.type === "main_frame" || info.type === "sub_frame";
-  if (isAttachment || isNavigation) {
-    return { filename, fileSize, mimeType };
+  if (isTopNavigation) {
+    // Direct top-level navigation to a downloadable file
+    if (ext && !BLOCKED_ASSET_EXTENSIONS.has(ext) && !isExtensionExcluded(ext)) {
+      return { filename, fileSize, mimeType };
+    }
   }
 
+  // All other subresource requests (fonts, scripts, css, images, background fetches) are ignored!
   return null;
 }
 

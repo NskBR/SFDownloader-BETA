@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { BarChart3, RotateCcw, RefreshCw, Download, Upload, AlertTriangle, X } from "lucide-react";
 import { getMetrics, resetMetrics, exportMetrics, importMetrics } from "../services/downloadService";
 import type { MetricsSnapshot } from "../domain/metrics";
+import { useTranslation } from "../i18n";
 
 const GB = 1024 * 1024 * 1024;
 
@@ -103,9 +104,12 @@ function Donut({ segments, centerLabel, centerValue }: {
 }
 
 export function MetricsPage() {
+  const { t } = useTranslation();
   const [metrics, setMetrics] = useState<MetricsSnapshot | null>(null);
+  const [loading, setLoading] = useState(true);
   const [resetting, setResetting] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     void getMetrics()
@@ -154,43 +158,43 @@ export function MetricsPage() {
   const statusTotal = completedBytes + cancelledBytes + failedBytes;
 
   const segments: Segment[] = [
-    { label: "Concluído", value: completedBytes, color: "var(--accent-green)" },
-    { label: "Cancelado", value: cancelledBytes, color: "var(--accent-amber)" },
-    { label: "Falho", value: failedBytes, color: "var(--accent-red)" },
+    { label: t.metrics.completed, value: completedBytes, color: "var(--accent-green)" },
+    { label: t.metrics.cancelled, value: cancelledBytes, color: "var(--accent-amber)" },
+    { label: t.metrics.failed, value: failedBytes, color: "var(--accent-red)" },
   ];
 
   const cards = [
-    { label: "Concluído", value: formatBytes(completedBytes), accent: "green" },
-    { label: "Cancelado", value: formatBytes(cancelledBytes), accent: "amber" },
-    { label: "Falho", value: formatBytes(failedBytes), accent: "red" },
-    { label: "Extraído", value: formatBytes(metrics?.extractedBytes ?? 0), accent: "ember" },
-    { label: "SSD gravado", value: formatBytes(metrics?.ssdWrittenBytes ?? 0), accent: "slate" },
-    { label: "Velocidade média", value: formatSpeed(averageSpeed), accent: "ember" },
-    { label: "Tempo médio", value: formatDuration(averageTime), accent: "slate" },
+    { label: t.metrics.completed, value: formatBytes(completedBytes), accent: "green" },
+    { label: t.metrics.cancelled, value: formatBytes(cancelledBytes), accent: "amber" },
+    { label: t.metrics.failed, value: formatBytes(failedBytes), accent: "red" },
+    { label: t.metrics.extracted, value: formatBytes(metrics?.extractedBytes ?? 0), accent: "ember" },
+    { label: t.metrics.ssdWritten, value: formatBytes(metrics?.ssdWrittenBytes ?? 0), accent: "slate" },
+    { label: t.metrics.averageSpeed, value: formatSpeed(averageSpeed), accent: "ember" },
+    { label: t.metrics.averageTime, value: formatDuration(averageTime), accent: "slate" },
   ];
 
   return (
     <section className="metrics-page">
       <header className="metrics-header">
         <div>
-          <h1>Métricas</h1>
-          <p>Estatísticas acumuladas de downloads — persistem até serem redefinidas.</p>
+          <h1>{t.metrics.title}</h1>
+          <p>{t.metrics.subtitle}</p>
         </div>
         <div className="metrics-actions">
           <button
             className="reset-btn"
             onClick={handleImport}
-            title="Importar métricas de um JSON"
-            aria-label="Importar métricas"
+            title={t.metrics.importTooltip}
+            aria-label={t.metrics.import}
           >
             <Upload size={15} />
-            Importar
+            {t.metrics.import}
           </button>
           <button
             className="reset-btn"
             onClick={() => void handleExport("txt")}
-            title="Baixar relatório em TXT"
-            aria-label="Exportar métricas em TXT"
+            title={t.metrics.txtTooltip}
+            aria-label="Export TXT"
           >
             <Download size={15} />
             TXT
@@ -198,8 +202,8 @@ export function MetricsPage() {
           <button
             className="reset-btn"
             onClick={() => void handleExport("json")}
-            title="Baixar relatório em JSON"
-            aria-label="Exportar métricas em JSON"
+            title={t.metrics.jsonTooltip}
+            aria-label="Export JSON"
           >
             <Download size={15} />
             JSON
@@ -207,30 +211,30 @@ export function MetricsPage() {
           <button
             className="reset-btn"
             onClick={load}
-            title="Atualizar dados"
-            aria-label="Atualizar dados"
+            title={t.metrics.refreshTooltip}
+            aria-label={t.metrics.refresh}
           >
             <RefreshCw size={15} />
-            Atualizar
+            {t.metrics.refresh}
           </button>
           <button
             className="reset-btn reset-btn--danger"
             onClick={() => setConfirmReset(true)}
             disabled={resetting}
-            title="Redefinir todas as métricas"
+            title={t.metrics.resetTooltip}
           >
             <RotateCcw size={15} />
-            Redefinir métricas
+            {t.metrics.reset}
           </button>
         </div>
       </header>
 
       <div className="metrics-body">
         <div className="metrics-chart-card">
-          <h2 className="metrics-panel-title">Status dos downloads</h2>
+          <h2 className="metrics-panel-title">{t.metrics.downloadStatus}</h2>
           <Donut
             segments={segments}
-            centerLabel="baixado"
+            centerLabel={t.metrics.downloadedCenter}
             centerValue={formatBytes(completedBytes)}
           />
           <ul className="donut-legend">
@@ -253,12 +257,14 @@ export function MetricsPage() {
 
         <div className="metrics-stats">
           <div className="metric-card metric-card--hero">
-            <span className="metric-label">Total baixado</span>
+            <span className="metric-label">{t.metrics.totalDownloaded}</span>
             <strong className="metric-value metric-value--hero">
               {formatBytes(metrics?.totalBytes ?? 0)}
             </strong>
             <span className="metric-sub">
-              {completedCount > 0 ? `${completedCount} download${completedCount > 1 ? "s" : ""} concluído${completedCount > 1 ? "s" : ""}` : "Nenhum download ainda"}
+              {completedCount > 0
+                ? `${completedCount} ${completedCount === 1 ? t.metrics.downloadCompleted : t.metrics.downloadsCompleted}`
+                : t.metrics.noDownloadsYet}
             </span>
           </div>
 
@@ -278,7 +284,7 @@ export function MetricsPage() {
 
       {!metrics && (
         <p className="metrics-empty">
-          <BarChart3 size={16} /> Nenhuma métrica registrada ainda.
+          <BarChart3 size={16} /> {t.metrics.empty}
         </p>
       )}
 
@@ -286,8 +292,8 @@ export function MetricsPage() {
         <div className="cancel-overlay">
           <section className="cancel-dialog">
             <header>
-              <span>Redefinir métricas?</span>
-              <button onClick={() => setConfirmReset(false)} aria-label="Fechar">
+              <span>{t.metrics.resetModalTitle}</span>
+              <button onClick={() => setConfirmReset(false)} aria-label={t.common.close}>
                 <X size={16} />
               </button>
             </header>
@@ -296,16 +302,13 @@ export function MetricsPage() {
                 <AlertTriangle size={16} />
               </i>
               <p>
-                <strong>Deseja realmente redefinir todas as métricas?</strong>
-                <span>
-                  Isso apaga permanentemente os totais acumulados de downloads.
-                  Exporte um backup em JSON antes se quiser preservá-los.
-                </span>
+                <strong>{t.metrics.resetModalPrompt}</strong>
+                <span>{t.metrics.resetModalDesc}</span>
               </p>
             </div>
             <footer>
               <button disabled={resetting} onClick={() => setConfirmReset(false)}>
-                Cancelar
+                {t.common.cancel}
               </button>
               <button
                 className="delete"
@@ -313,7 +316,7 @@ export function MetricsPage() {
                 onClick={() => void handleConfirmReset()}
               >
                 <RotateCcw size={15} />
-                Redefinir
+                {t.metrics.reset}
               </button>
             </footer>
           </section>

@@ -18,6 +18,5 @@ browser-extension/release/*-0.4*.xpi
 browser-extension/release/*-0.5*.xpi
 browser-extension/release/*-0.6*.xpi
 browser-extension/release/*-0.7*.xpi
-browser-extension/release/*-0.8*.xpi
-browser-extension/release/*-0.9*.xpi
-browser-extension/release/*-1.*.xpi
+# Backups e zips locais
+*.zip

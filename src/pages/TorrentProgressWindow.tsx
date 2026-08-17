@@ -5,6 +5,7 @@ import {
   Clock3,
   Copy,
   Check,
+  Download,
   FileText,
   FolderOpen,
   Gauge,
@@ -25,6 +26,7 @@ import { FileIcon } from "../components/downloads/FileIcon";
 import * as service from "../services/downloadService";
 import type { DownloadStatus, DownloadTask } from "../domain/download";
 import { elapsedSeconds, formatElapsed } from "../utils/elapsedTime";
+import { useTranslation } from "../i18n";
 
 const bytes = (value: number | null) => {
   if (value === null || value < 0) return "Desconhecido";
@@ -61,6 +63,19 @@ const statusLabels: Record<DownloadStatus, string> = {
 };
 
 function Donut({ value, status }: { value: number; status: DownloadStatus }) {
+  const { t } = useTranslation();
+  const statusLabels: Record<DownloadStatus, string> = {
+    pending: t.downloadWindow.pending,
+    connecting: t.downloadWindow.pending,
+    checking_files: t.downloadWindow.checkingFiles,
+    downloading: t.downloadWindow.downloading,
+    paused: t.downloadWindow.paused,
+    assembling: t.downloadWindow.assembling,
+    extracting: t.downloadWindow.extracting,
+    completed: t.downloadWindow.completed,
+    failed: t.downloadWindow.failed,
+    cancelled: t.downloadWindow.cancelled,
+  };
   const size = 84,
     stroke = 6,
     radius = (size - stroke) / 2,
@@ -129,7 +144,48 @@ interface TorrentProgressPayload {
   error?: string | null;
 }
 
+function TitleDownloadIcon({ status }: { status: DownloadStatus }) {
+  const strokeColor =
+    status === "completed"
+      ? "var(--st-completed)"
+      : status === "failed" || status === "cancelled"
+      ? "var(--st-failed)"
+      : status === "paused"
+      ? "var(--st-paused)"
+      : "url(#dw-torrent-title-gradient)";
+
+  return (
+    <svg
+      className="dw-title-icon"
+      width={16}
+      height={16}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={strokeColor}
+      strokeWidth={2.2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ transition: "stroke 0.25s ease", flexShrink: 0 }}
+    >
+      <defs>
+        <linearGradient id="dw-torrent-title-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="var(--ember-stop-1, #06b6d4)">
+            <animate attributeName="stop-color" values="#00f2fe;#7928ca;#ff007a;#00f2fe" dur="6s" repeatCount="indefinite" />
+          </stop>
+          <stop offset="100%" stopColor="var(--ember-stop-2, #22d3ee)">
+            <animate attributeName="stop-color" values="#ff007a;#00f2fe;#7928ca;#ff007a" dur="6s" repeatCount="indefinite" />
+          </stop>
+        </linearGradient>
+      </defs>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  );
+}
+
 export function TorrentProgressWindow({ downloadId }: { downloadId: string }) {
+  const { t } = useTranslation();
   const [task, setTask] = useState<DownloadTask | null>(null);
   const [downloaded, setDownloaded] = useState(0);
   const [verifiedBytes, setVerifiedBytes] = useState(0);
@@ -146,6 +202,19 @@ export function TorrentProgressWindow({ downloadId }: { downloadId: string }) {
   const appWindow = getCurrentWindow();
   const mainRef = useRef<HTMLElement>(null);
 
+  const statusLabels: Record<DownloadStatus, string> = {
+    pending: t.downloadWindow.pending,
+    connecting: t.downloadWindow.pending,
+    checking_files: t.downloadWindow.checkingFiles,
+    downloading: t.downloadWindow.downloading,
+    paused: t.downloadWindow.paused,
+    assembling: t.downloadWindow.assembling,
+    extracting: t.downloadWindow.extracting,
+    completed: t.downloadWindow.completed,
+    failed: t.downloadWindow.failed,
+    cancelled: t.downloadWindow.cancelled,
+  };
+
   useEffect(() => {
     void appWindow.show().catch(() => {});
     void appWindow.setFocus().catch(() => {});
@@ -154,14 +223,15 @@ export function TorrentProgressWindow({ downloadId }: { downloadId: string }) {
   useEffect(() => {
     let fitted = false;
     const fit = async () => {
-      if (!detailsOpen && fitted) return;
+      if (!detailsOpen && !cancelOpen && fitted) return;
       await document.fonts?.ready.catch(() => {});
       fitted = true;
-      const targetHeight = detailsOpen ? 420 : 205;
-      void appWindow.setSize(new LogicalSize(470, targetHeight)).catch(() => {});
+      const targetHeight = cancelOpen ? 290 : detailsOpen ? 370 : 205;
+      const targetWidth = 470;
+      void appWindow.setSize(new LogicalSize(targetWidth, targetHeight)).catch(() => {});
     };
     void fit();
-  }, [detailsOpen]);
+  }, [detailsOpen, cancelOpen]);
 
   const notFoundCount = useRef(0);
 
@@ -344,16 +414,16 @@ export function TorrentProgressWindow({ downloadId }: { downloadId: string }) {
     <main ref={mainRef} className={`dw-window torrent-download-window status-${status} ${isCompleted ? "dw-complete" : "dw-progress"}${cancelOpen ? " cancel-open" : ""}`}>
       <header className="dw-title" data-tauri-drag-region>
         <span className="dw-title-text" data-tauri-drag-region>
-          <FileIcon extension={task.extension || "torrent"} />
+          <TitleDownloadIcon status={status} />
           <span className="dw-title-name" title={task.fileName} data-tauri-drag-region>
             {task.fileName}
           </span>
         </span>
         <div className="dw-controls">
-          <button title="Minimizar" onClick={() => void appWindow.minimize()}>
+          <button title={t.titlebar.minimizeTooltip} onClick={() => void appWindow.minimize()}>
             <Minus />
           </button>
-          <button title="Fechar janela" onClick={() => void appWindow.close()}>
+          <button title={t.titlebar.closeTooltip} onClick={() => void appWindow.close()}>
             <X />
           </button>
         </div>
@@ -367,46 +437,54 @@ export function TorrentProgressWindow({ downloadId }: { downloadId: string }) {
             </div>
 
             <div className="dw-right">
-              <p className="dw-origin">
-                {statusLabels[status]} <span className="dw-origin-domain">• P2P BitTorrent</span>
-              </p>
+              <div className="dw-right-top">
+                <div className="dw-right-info">
+                  <p className="dw-origin">
+                    {statusLabels[status]} <span className="dw-origin-domain">• P2P BitTorrent</span>
+                  </p>
 
-              <div className="dw-size-row">
-                {!isCompleted && !isFailed && !isChecking && (
-                  <button className="dw-icon-btn" title="Pausar/Retomar" onClick={() => void pauseResume()}>
-                    {isActive ? <Pause /> : <Play />}
-                  </button>
-                )}
-                {isCompleted && (
-                  <button className="dw-icon-btn" title="Copiar destino" onClick={() => copyPath(task.finalPath)}>
-                    {copied ? <Check /> : <Copy />}
-                  </button>
-                )}
-                <p className="dw-size">
-                  {bytes(isChecking ? 0 : downloaded)}{!isCompleted && total ? <em> / {bytes(total)}</em> : null}
-                </p>
-              </div>
+                  <div className="dw-size-row">
+                    {!isCompleted && !isFailed && !isChecking && (
+                      <button className="dw-icon-btn" title={isActive ? t.downloads.pauseDownload : t.downloads.resumeDownload} onClick={() => void pauseResume()}>
+                        {isActive ? <Pause /> : <Play />}
+                      </button>
+                    )}
+                    {isCompleted && (
+                      <button className="dw-icon-btn" title={copied ? t.downloadWindow.copiedPath : t.downloadWindow.copyDestination} onClick={() => copyPath(task.finalPath)}>
+                        {copied ? <Check /> : <Copy />}
+                      </button>
+                    )}
+                    <p className="dw-size">
+                      {bytes(isChecking ? 0 : downloaded)}{!isCompleted && total ? <em> / {bytes(total)}</em> : null}
+                    </p>
+                  </div>
 
-              {!isCompleted && (
-                <p className="dw-meta">
-                  {error ? (
-                    <span className="dw-meta-error">
-                      <AlertTriangle size={13} style={{ flexShrink: 0 }} />
-                      <span>{error}</span>
-                    </span>
-                  ) : isChecking ? (
-                    <span style={{ opacity: 0.75, fontSize: "0.85em" }}>🔍 Checando dados no disco</span>
-                  ) : (
-                    <>
-                      ⬇️ {isActive ? `${bytes(speed)}/s` : "0 B/s"}
-                      <span className="dw-dot">•</span>
-                      👥 {peers} pares
-                      <span className="dw-dot">•</span>
-                      ⏱ {eta(remaining)}
-                    </>
+                  {!isCompleted && (
+                    <p className="dw-meta">
+                      {error ? (
+                        <span className="dw-meta-error">
+                          <AlertTriangle size={13} style={{ flexShrink: 0 }} />
+                          <span>{error}</span>
+                        </span>
+                      ) : isChecking ? (
+                        <span style={{ opacity: 0.75, fontSize: "0.85em" }}>🔍 {t.downloadWindow.checkingIntegrity}</span>
+                      ) : (
+                        <>
+                          ⬇️ {isActive ? `${bytes(speed)}/s` : "0 B/s"}
+                          <span className="dw-dot">•</span>
+                          👥 {peers} {t.torrentWindow.peers.toLowerCase()}
+                          <span className="dw-dot">•</span>
+                          ⏱ {eta(remaining)}
+                        </>
+                      )}
+                    </p>
                   )}
-                </p>
-              )}
+                </div>
+
+                <div className="dw-file-badge" title={`Arquivo: ${task.fileName}`}>
+                  <FileIcon extension={task.extension || "torrent"} width={64} height={74} />
+                </div>
+              </div>
 
               {!isCompleted && (
                 <div className={`dw-bar${isActive ? " dw-bar--active" : ""}${isChecking ? " dw-bar--checking" : ""}${status === "paused" ? " dw-bar--paused" : ""}`} role="progressbar" aria-valuenow={Math.round(progress)}>
@@ -421,24 +499,24 @@ export function TorrentProgressWindow({ downloadId }: { downloadId: string }) {
           <footer className="dw-footer">
             <button className="dw-details-toggle" onClick={() => setDetailsOpen((value) => !value)}>
               <ChevronDown className={detailsOpen ? "open" : ""} />
-              Mais detalhes
+              {t.downloadWindow.moreDetails}
             </button>
 
             {isCompleted ? (
               <div className="dw-footer-actions">
                 <button className="dw-btn-primary" onClick={() => void service.openFile(task.finalPath)}>
                   <FileText size={16} />
-                  Abrir arquivo
+                  {t.common.openFile}
                 </button>
                 <button className="dw-btn-ghost" onClick={() => void service.revealInFolder(task.finalPath)}>
                   <FolderOpen size={16} />
-                  Abrir pasta
+                  {t.common.openFolder}
                 </button>
               </div>
             ) : (
               <button className="dw-btn-cancel" onClick={() => void cancel(true)} disabled={busy}>
                 <Ban size={15} />
-                Cancelar
+                {t.common.cancel}
               </button>
             )}
           </footer>
@@ -450,31 +528,31 @@ export function TorrentProgressWindow({ downloadId }: { downloadId: string }) {
           <div className="dw-details-header" data-tauri-drag-region>
             <button className="dw-details-back nodrag" onClick={() => setDetailsOpen(false)}>
               <ArrowLeft size={16} />
-              Voltar
+              {t.common.back}
             </button>
-            <span className="dw-details-header-title">Detalhes Técnicos do Torrent</span>
+            <span className="dw-details-header-title">{t.torrentWindow.detailsTitle}</span>
           </div>
 
           <div className="dw-details-compact-body">
             <div className="dw-details-card">
               <div className="dw-detail-row">
-                <span className="dw-detail-label">Velocidade Download</span>
+                <span className="dw-detail-label">{t.torrentWindow.downloadSpeed}</span>
                 <span className="dw-detail-val">{bytes(speed)}/s</span>
               </div>
               <div className="dw-detail-row">
-                <span className="dw-detail-label">Velocidade Upload</span>
+                <span className="dw-detail-label">{t.torrentWindow.uploadSpeed}</span>
                 <span className="dw-detail-val">{bytes(uploadSpeed)}/s</span>
               </div>
               <div className="dw-detail-row">
-                <span className="dw-detail-label">Conexões P2P</span>
-                <span className="dw-detail-val">{peers} pares conectando/ativos</span>
+                <span className="dw-detail-label">{t.torrentWindow.peers}</span>
+                <span className="dw-detail-val">{peers}</span>
               </div>
               <div className="dw-detail-row">
-                <span className="dw-detail-label">Trackers Ativos</span>
-                <span className="dw-detail-val">{trackers || "Não informado"}</span>
+                <span className="dw-detail-label">{t.torrentWindow.trackers}</span>
+                <span className="dw-detail-val">{trackers || "—"}</span>
               </div>
               <div className="dw-detail-row">
-                <span className="dw-detail-label">Pasta de Destino</span>
+                <span className="dw-detail-label">{t.downloadWindow.destinationFolder}</span>
                 <span className="dw-detail-val">{destination}</span>
               </div>
             </div>

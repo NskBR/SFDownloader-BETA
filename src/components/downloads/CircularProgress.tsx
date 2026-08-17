@@ -20,7 +20,7 @@ export function CircularProgress({
   const clamped = Math.max(0, Math.min(100, value));
   const offset = circumference - (clamped / 100) * circumference;
 
-  const isDefaultEmber = !color || color === "var(--ember)";
+  const isDefaultEmber = !color || color === "var(--ember)" || color === "var(--st-downloading)";
   const strokeColor = isDefaultEmber ? "url(#circ-progress-gradient)" : color;
 
   return (
@@ -34,8 +34,12 @@ export function CircularProgress({
     >
       <defs>
         <linearGradient id="circ-progress-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="var(--ember-stop-1, #06b6d4)" />
-          <stop offset="100%" stopColor="var(--ember-stop-2, #22d3ee)" />
+          <stop offset="0%" stopColor="var(--ember-stop-1, #06b6d4)">
+            <animate attributeName="stop-color" values="#00f2fe;#7928ca;#ff007a;#00f2fe" dur="5s" repeatCount="indefinite" />
+          </stop>
+          <stop offset="100%" stopColor="var(--ember-stop-2, #22d3ee)">
+            <animate attributeName="stop-color" values="#ff007a;#00f2fe;#7928ca;#ff007a" dur="5s" repeatCount="indefinite" />
+          </stop>
         </linearGradient>
       </defs>
       <circle

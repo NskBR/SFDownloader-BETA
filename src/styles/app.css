@@ -234,10 +234,10 @@ input, textarea, [contenteditable="true"], .path-display, .path-row {
   width: 100%;
 }
 
-/* A sidebar é parte do painel, sem borda separando */
+/* A sidebar é modular e redimensionável sem divisões duras (Design Seamless & Fluido) */
 .sidebar {
   position: relative;
-  width: 224px;
+  width: 240px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -245,6 +245,100 @@ input, textarea, [contenteditable="true"], .path-display, .path-row {
   padding: 14px 12px;
   background: var(--bg-surface);     /* igual ao conteúdo = sem divisão */
   border-right: none !important;
+}
+.sidebar--resizing {
+  transition: none !important;
+  user-select: none !important;
+}
+
+/* Alça de redimensionamento modular (Seamless) */
+.sidebar-resizer {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.sidebar-resizer::after {
+  content: "";
+  width: 3px;
+  height: 36px;
+  border-radius: 99px;
+  background: var(--ember, #00b884);
+  opacity: 0;
+  transform: scaleY(0.6);
+  transition: opacity 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+}
+
+.sidebar-resizer:hover::after,
+.sidebar--resizing .sidebar-resizer::after {
+  opacity: 0.85;
+  transform: scaleY(1);
+  box-shadow: 0 0 10px var(--ember-soft, rgba(0, 184, 132, 0.4));
+}
+
+/* Modo Compacto da Sidebar (Somente Ícones) */
+.sidebar--compact {
+  padding: 14px 6px !important;
+  align-items: center;
+}
+.sidebar--compact .brand {
+  padding: 4px 0 12px;
+  justify-content: center;
+}
+.sidebar--compact .brand__logo {
+  width: 32px;
+  height: 32px;
+}
+.sidebar--compact .navigation {
+  align-items: center;
+  width: 100%;
+}
+.sidebar--compact .navigation__item {
+  justify-content: center;
+  padding: 0;
+  width: 44px;
+  min-height: 42px;
+  border-radius: 12px;
+  margin: 0 auto;
+}
+.sidebar--compact .navigation__item > div {
+  justify-content: center;
+  gap: 0;
+}
+.sidebar--compact .navigation__item > div > span {
+  display: none !important;
+}
+.sidebar--compact .navigation__item > div > svg {
+  width: 20px;
+  height: 20px;
+}
+.sidebar--compact .counter-badge {
+  display: none !important;
+}
+
+/* Ações transferidas para a TitleBar no modo compacto */
+.titlebar-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-right: 6px;
+  animation: actions-fade-in 0.2s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.titlebar-footer-actions .titlebar-theme-btn.active {
+  color: var(--ember-solid, #00b884);
+  background: var(--ember-soft, rgba(0, 184, 132, 0.14));
+}
+@keyframes actions-fade-in {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
 }
 /* Indicador único que viaja entre navegação e rodapé com suporte a gradientes e cores sólidas */
 .sidebar-indicator {
@@ -320,6 +414,7 @@ input, textarea, [contenteditable="true"], .path-display, .path-row {
   transition: background 0.15s, color 0.15s, transform 0.12s;
 }
 .navigation__item > div { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.navigation__item > div > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* ícone SEM box */
 .navigation__item > div > svg { width: 18px; height: 18px; flex-shrink: 0; color: var(--muted); transition: color 0.15s; }
 .navigation__item { position: relative; z-index: 1; }
@@ -557,7 +652,7 @@ input, textarea, [contenteditable="true"], .path-display, .path-row {
 .download-card.selected { border-left-color: var(--ember-solid); background: var(--surface-2); }
 
 /* cor da borda esquerda por status */
-.download-card.status-downloading { border-left-color: var(--st-downloading); }
+.download-card.status-downloading { border-left-color: var(--st-downloading, var(--ember-solid)); }
 .download-card.status-paused { border-left-color: var(--st-paused); }
 .download-card.status-completed { border-left-color: var(--st-completed); }
 .download-card.status-failed { border-left-color: var(--st-failed); }
@@ -587,12 +682,13 @@ input, textarea, [contenteditable="true"], .path-display, .path-row {
   transition: opacity 0.25s ease, transform 0.25s ease;
 }
 .completed-check { opacity: 1; transform: scale(1); }
-.completed-check svg { width: 20px; height: 20px; }
-.completed-file-icon { opacity: 0; transform: scale(0.7); }
+.completed-check svg { width: 22px; height: 22px; }
+.completed-file-icon { opacity: 0; transform: scale(0.65); pointer-events: none; }
+.completed-file-icon svg { width: 38px; height: 44px; filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.5)); }
 .completed-file-icon .styled-file-icon { width: 34px; height: 34px; border-radius: 9px; }
 .completed-file-icon .styled-file-icon svg { width: 16px; }
 .completed-file-icon .styled-file-icon b { font-size: 7px; bottom: 3px; }
-.download-card.status-completed:hover .completed-check { opacity: 0; transform: scale(1.3); }
+.download-card.status-completed:hover .completed-check { opacity: 0; transform: scale(0.65); }
 .download-card.status-completed:hover .completed-file-icon { opacity: 1; transform: scale(1); }
 
 /* Coluna central: nome, meta, barra reta */
@@ -651,23 +747,31 @@ input, textarea, [contenteditable="true"], .path-display, .path-row {
 }
 .card-progress-bar-fill {
   height: 100%; border-radius: 999px;
-  background: var(--st-downloading);
-  transition: width 0.25s ease, background 0.2s;
-  background-image: linear-gradient(
-    100deg,
-    rgba(255, 255, 255, 0) 35%,
-    rgba(255, 255, 255, 0.32) 50%,
-    rgba(255, 255, 255, 0) 65%
-  );
-  background-size: 220% 100%;
-  background-repeat: no-repeat;
-  background-position: 150% 0;
+  background: var(--ember);
+  box-shadow: 0 0 8px var(--ember-soft);
+  transition: width 0.25s ease;
+  position: relative;
+  overflow: hidden;
 }
-.download-card.status-downloading .card-progress-bar-fill {
-  animation: progress-sheen 1.4s linear infinite;
+.download-card.status-downloading .card-progress-bar-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.45) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: progress-sheen 1.5s linear infinite;
+}
+@keyframes progress-sheen {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .download-card.status-downloading .card-progress-bar-fill { animation: none; }
+  .download-card.status-downloading .card-progress-bar-fill::after { animation: none; }
 }
 .download-card.status-paused .card-progress-bar-fill { background: var(--st-paused); }
 .download-card.status-completed .card-progress-bar-fill { background: var(--st-completed); }
@@ -876,6 +980,181 @@ input, textarea, [contenteditable="true"], .path-display, .path-row {
 }
 .accent-swatch:hover { transform: scale(1.12); }
 .accent-swatch.active { border-color: #ffffff; box-shadow: 0 0 0 2px var(--ember-solid, #06b6d4), 0 4px 12px rgba(0, 0, 0, 0.4); transform: scale(1.12); }
+
+/* Animação e Estilização do Tema Gradiente Animado (Cosmic Flow) */
+@keyframes sf-cosmic-gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes sf-cosmic-icon-shift {
+  0% {
+    color: #00f2fe !important;
+    filter: drop-shadow(0 0 6px rgba(0, 242, 254, 0.75));
+  }
+  50% {
+    color: #a855f7 !important;
+    filter: drop-shadow(0 0 6px rgba(168, 85, 247, 0.75));
+  }
+  100% {
+    color: #ff007a !important;
+    filter: drop-shadow(0 0 6px rgba(255, 0, 122, 0.75));
+  }
+}
+
+@keyframes sf-cosmic-logo-glow {
+  0% {
+    filter: drop-shadow(0 0 8px rgba(0, 242, 254, 0.7)) hue-rotate(0deg);
+  }
+  50% {
+    filter: drop-shadow(0 0 12px rgba(168, 85, 247, 0.8)) hue-rotate(90deg);
+  }
+  100% {
+    filter: drop-shadow(0 0 8px rgba(255, 0, 122, 0.7)) hue-rotate(180deg);
+  }
+}
+
+.accent-swatch[title*="Cosmic Flow"] {
+  background: linear-gradient(135deg, #00f2fe, #7928ca, #ff007a, #00f2fe) !important;
+  background-size: 300% 300% !important;
+  animation: sf-cosmic-gradient-shift 4s ease infinite !important;
+}
+
+/* 1. Indicador das abas das configurações */
+[data-accent="gradient_flow"] .cfg-tabs-indicator {
+  background: linear-gradient(135deg, rgba(0, 242, 254, 0.22), rgba(121, 40, 202, 0.28), rgba(255, 0, 122, 0.22), rgba(0, 242, 254, 0.22)) !important;
+  background-size: 300% 300% !important;
+  animation: sf-cosmic-gradient-shift 4s ease infinite !important;
+  box-shadow: 0 4px 18px rgba(121, 40, 202, 0.4) !important;
+}
+
+[data-accent="gradient_flow"] .cfg-tabs-indicator::before {
+  background: linear-gradient(135deg, #00f2fe, #7928ca, #ff007a, #00f2fe) !important;
+  background-size: 300% 300% !important;
+  animation: sf-cosmic-gradient-shift 4s ease infinite !important;
+}
+
+/* 2. Indicador deslizante da Sidebar */
+[data-accent="gradient_flow"] .sidebar-indicator {
+  background: linear-gradient(135deg, rgba(0, 242, 254, 0.22), rgba(121, 40, 202, 0.28), rgba(255, 0, 122, 0.22), rgba(0, 242, 254, 0.22)) !important;
+  background-size: 300% 300% !important;
+  animation: sf-cosmic-gradient-shift 4s ease infinite !important;
+  box-shadow: 0 4px 18px rgba(121, 40, 202, 0.4) !important;
+}
+
+[data-accent="gradient_flow"] .sidebar-indicator::before {
+  background: linear-gradient(135deg, #00f2fe, #7928ca, #ff007a, #00f2fe) !important;
+  background-size: 300% 300% !important;
+  animation: sf-cosmic-gradient-shift 4s ease infinite !important;
+}
+
+/* 3. Chaves de alternância (Toggles/Seletores) */
+[data-accent="gradient_flow"] .toggle.toggle--on,
+[data-accent="gradient_flow"] button.toggle--on,
+[data-accent="gradient_flow"] .toggle[aria-checked="true"] {
+  background: linear-gradient(135deg, #00f2fe, #7928ca, #ff007a, #00f2fe) !important;
+  background-size: 300% 300% !important;
+  animation: sf-cosmic-gradient-shift 4s ease infinite !important;
+  box-shadow: 0 0 14px rgba(121, 40, 202, 0.5) !important;
+}
+
+/* 4. Botões do rodapé da Sidebar e Titlebar */
+[data-accent="gradient_flow"] .sidebar-footer-btn.active,
+[data-accent="gradient_flow"] .titlebar-theme-btn.active {
+  color: #ffffff !important;
+  border-color: transparent !important;
+  background: linear-gradient(135deg, rgba(0, 242, 254, 0.25), rgba(121, 40, 202, 0.3), rgba(255, 0, 122, 0.25), rgba(0, 242, 254, 0.25)) !important;
+  background-size: 300% 300% !important;
+  animation: sf-cosmic-gradient-shift 4s ease infinite !important;
+  box-shadow: 0 0 14px rgba(121, 40, 202, 0.45) !important;
+}
+
+[data-accent="gradient_flow"] .sidebar-footer-btn.active svg,
+[data-accent="gradient_flow"] .titlebar-theme-btn.active svg {
+  animation: sf-cosmic-icon-shift 4s ease infinite alternate !important;
+}
+
+/* 5. Badges de versão e contadores ativos */
+[data-accent="gradient_flow"] .titlebar-version,
+[data-accent="gradient_flow"] .badge-version,
+[data-accent="gradient_flow"] .version-badge,
+[data-accent="gradient_flow"] .navigation__item--active .counter-badge {
+  background: linear-gradient(135deg, #00f2fe, #7928ca, #ff007a, #00f2fe) !important;
+  background-size: 300% 300% !important;
+  animation: sf-cosmic-gradient-shift 4s ease infinite !important;
+  color: #ffffff !important;
+}
+
+/* 6. Ícones do aplicativo e navegação */
+[data-accent="gradient_flow"] .navigation__item--active div svg,
+[data-accent="gradient_flow"] .navigation__item--active span {
+  color: #ffffff !important;
+}
+
+[data-accent="gradient_flow"] .navigation__item--active div svg,
+[data-accent="gradient_flow"] .cfg-card-icon-box svg,
+[data-accent="gradient_flow"] .dw-icon-btn svg,
+[data-accent="gradient_flow"] .sidebar-nav-item.active .navigation__icon {
+  animation: sf-cosmic-icon-shift 4s ease infinite alternate !important;
+}
+
+[data-accent="gradient_flow"] .brand__logo {
+  animation: sf-cosmic-logo-glow 4s ease-in-out infinite alternate !important;
+}
+
+/* 7. Caixas de ícones de cartões de configurações */
+[data-accent="gradient_flow"] .cfg-card-icon-box {
+  background: linear-gradient(135deg, rgba(0, 242, 254, 0.18), rgba(121, 40, 202, 0.24), rgba(255, 0, 122, 0.18), rgba(0, 242, 254, 0.18)) !important;
+  background-size: 300% 300% !important;
+  animation: sf-cosmic-gradient-shift 4s ease infinite !important;
+  border: 1px solid rgba(168, 85, 247, 0.35) !important;
+}
+
+/* 8. Botões de ação primária em todo o app */
+[data-accent="gradient_flow"] .btn-primary,
+[data-accent="gradient_flow"] .cfg-btn-primary,
+[data-accent="gradient_flow"] .confirm-btn-start,
+[data-accent="gradient_flow"] .dw-btn-primary,
+[data-accent="gradient_flow"] .action-btn--primary,
+[data-accent="gradient_flow"] .confirm-v2-btn-start,
+[data-accent="gradient_flow"] .add-download-btn,
+[data-accent="gradient_flow"] .dialog-btn-primary {
+  background: linear-gradient(135deg, #00f2fe, #7928ca, #ff007a, #00f2fe) !important;
+  background-size: 300% 300% !important;
+  animation: sf-cosmic-gradient-shift 4s ease infinite !important;
+  border-color: transparent !important;
+}
+
+/* 9. Barras de progresso ativas (Horizontal / Janelas / Lista) */
+[data-accent="gradient_flow"] .dw-bar i,
+[data-accent="gradient_flow"] .dw-bar--active i,
+[data-accent="gradient_flow"] .item-progress-fill,
+[data-accent="gradient_flow"] .progress-bar-fill,
+[data-accent="gradient_flow"] .progress-fill,
+[data-accent="gradient_flow"] .download-card-progress-bar i,
+[data-accent="gradient_flow"] .torrent-bar-fill {
+  background: linear-gradient(135deg, #00f2fe, #7928ca, #ff007a, #00f2fe) !important;
+  background-size: 300% 300% !important;
+  animation: sf-cosmic-gradient-shift 3s ease infinite !important;
+}
+
+/* 10. Checkmark e card do tema selecionado */
+[data-accent="gradient_flow"] .theme-preset-card.active {
+  box-shadow: 0 0 0 2px #a855f7, 0 4px 18px rgba(168, 85, 247, 0.45) !important;
+}
+
+[data-accent="gradient_flow"] .theme-check {
+  background: linear-gradient(135deg, #00f2fe, #7928ca, #ff007a, #00f2fe) !important;
+  background-size: 300% 300% !important;
+  animation: sf-cosmic-gradient-shift 4s ease infinite !important;
+}
+
+/* Desativação caso a opção esteja desligada */
+body.sidebar-anim-disabled [data-accent="gradient_flow"] * {
+  animation: none !important;
+}
+
 .appcolor-swatch {
   width: 30px; height: 30px; border-radius: 9px;
   border: 1px solid var(--line); cursor: pointer; transition: 0.15s;
@@ -2207,19 +2486,23 @@ input::-ms-clear {
   flex-shrink: 0;
   padding: 0 6px 0 18px;
 }
-.dw-title-text { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.dw-title-text { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: calc(100% - 70px); }
 .dw-title-text, .dw-title-text * { pointer-events: none; }
+.dw-title-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--dw-accent, var(--ember-solid));
+  flex-shrink: 0;
+  transition: color 0.25s ease;
+}
 .dw-title-name {
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 500;
   color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.dw-title .styled-file-icon { width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0; }
-.dw-title .styled-file-icon svg { width: 12px; }
-.dw-title .styled-file-icon b { font-size: 6px; bottom: 2px; }
 .dw-controls { display: flex; gap: 6px; pointer-events: auto; }
 .dw-controls button {
   display: grid; place-items: center; width: 30px; height: 30px;
@@ -2230,31 +2513,76 @@ input::-ms-clear {
 
 .dw-body {
   display: flex;
-  gap: 16px;
+  gap: 14px;
   align-items: center;
-  padding: 4px 18px;
+  padding: 4px 16px;
   flex: 1;
   min-height: 0;
 }
-.dw-left { width: 92px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
-.dw-donut { position: relative; flex-shrink: 0; width: 84px; height: 84px; }
+.dw-left { width: 84px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.dw-donut { position: relative; flex-shrink: 0; width: 80px; height: 80px; }
 .dw-donut-center {
   position: absolute; inset: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
 }
-.dw-donut-center strong { font-size: 18px; font-weight: 700; line-height: 1; color: var(--text); }
+.dw-donut-center strong { font-size: 17px; font-weight: 700; line-height: 1; color: var(--text); }
 .dw-donut-center span {
   font-size: 10px;
   color: var(--muted);
   font-weight: 500;
   white-space: nowrap;
-  max-width: 68px;
+  max-width: 66px;
   overflow: hidden;
   text-overflow: ellipsis;
   text-align: center;
 }
 
-.dw-right { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: space-evenly; gap: 3px; }
+.dw-right {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.dw-right-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.dw-right-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Badge de ícone estilizado no canto direito do corpo */
+.dw-file-badge {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  padding-right: 8px;
+  padding-left: 6px;
+  margin-top: -6px;
+}
+.dw-file-badge svg {
+  width: 64px !important;
+  height: 74px !important;
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.48));
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: block;
+}
+.dw-file-badge:hover svg {
+  transform: scale(1.06);
+}
 .dw-origin { margin: 0; font-size: 12px; color: var(--text-2); }
 .dw-origin-domain { color: var(--ember-solid); }
 .dw-size { margin: 0; font-size: 13px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
@@ -2403,10 +2731,10 @@ input::-ms-clear {
   position: absolute !important;
   inset: 0 !important;
   background: var(--bg-fill, var(--panel, #12151b)) !important;
-  padding: 8px 12px !important;
+  padding: 10px 14px !important;
   display: flex !important;
   flex-direction: column !important;
-  gap: 4px !important;
+  gap: 8px !important;
   z-index: 99999 !important;
   animation: dw-fade 0.18s ease !important;
   box-sizing: border-box !important;
@@ -2417,7 +2745,7 @@ input::-ms-clear {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 4px;
+  padding-bottom: 6px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   flex-shrink: 0;
 }
@@ -2432,7 +2760,7 @@ input::-ms-clear {
   color: var(--text, #f0f2f5);
   font-size: 11px;
   font-weight: 500;
-  padding: 2px 7px;
+  padding: 3px 8px;
   cursor: pointer;
   transition: 0.15s;
 }
@@ -2452,8 +2780,7 @@ input::-ms-clear {
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 4px;
+  gap: 6px;
   min-height: 0;
   overflow: hidden;
 }
@@ -2463,20 +2790,21 @@ input::-ms-clear {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 8px;
-  padding: 6px 10px;
+  padding: 8px 12px;
   display: flex;
   flex-direction: column;
-  justify-content: space-around;
+  gap: 5px;
   flex: 1;
   min-height: 0;
+  overflow-y: auto;
 }
 
 .dw-detail-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 1.5px 0;
+  gap: 12px;
+  padding: 2.5px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
@@ -2485,21 +2813,21 @@ input::-ms-clear {
 }
 
 .dw-detail-label {
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--text-2, #8a92a3);
   font-weight: 500;
   flex-shrink: 0;
 }
 
 .dw-detail-val {
-  font-size: 11px;
+  font-size: 11.5px;
   color: #ffffff;
   font-weight: 600;
   text-align: right;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 310px;
+  max-width: 290px;
 }
 
 /* Botões Rápidos Diretos no Rodapé */
@@ -2910,7 +3238,7 @@ html, body, #root, .window-frame {
   border-left-width: 4px !important;
 }
 
-:root[data-gradient="true"] .download-card.status-downloading { border-left-color: var(--st-downloading) !important; }
+:root[data-gradient="true"] .download-card.status-downloading { border-left-color: var(--st-downloading, var(--ember-solid)) !important; }
 :root[data-gradient="true"] .download-card.status-paused { border-left-color: var(--st-paused) !important; }
 :root[data-gradient="true"] .download-card.status-completed { border-left-color: var(--st-completed) !important; }
 :root[data-gradient="true"] .download-card.status-failed { border-left-color: var(--st-failed) !important; }
@@ -3896,6 +4224,7 @@ html, body, #root, .window-frame {
 
 /* Navegação por Abas Horizontais (Fixas no topo) */
 .cfg-nav-tabs {
+  position: relative;
   display: flex;
   width: 100%;
   gap: 6px;
@@ -3908,7 +4237,43 @@ html, body, #root, .window-frame {
   flex-shrink: 0;
 }
 
+/* Indicador suave idêntico ao da sidebar para as abas de configurações */
+.cfg-tabs-indicator {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  border-radius: 9px;
+  background: var(--ember-soft);
+  box-shadow: 0 4px 14px var(--ember-soft);
+  pointer-events: none;
+  z-index: 0;
+  transition: transform 0.34s cubic-bezier(0.22, 0.61, 0.36, 1),
+    width 0.34s cubic-bezier(0.22, 0.61, 0.36, 1),
+    height 0.34s cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity 0.2s ease;
+  will-change: transform, width, height;
+}
+
+.cfg-tabs-indicator::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9px;
+  padding: 1.5px;
+  background: var(--ember-solid, var(--ember));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.cfg-nav-tabs--no-animation .cfg-tabs-indicator {
+  transition: none !important;
+}
+
 .cfg-tab-btn {
+  position: relative;
+  z-index: 1;
   flex: 1;
   display: flex;
   align-items: center;
@@ -3922,19 +4287,23 @@ html, body, #root, .window-frame {
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: color 0.18s ease, background-color 0.18s ease;
 }
 
-.cfg-tab-btn:hover {
+.cfg-tab-btn:hover:not(.is-active) {
   color: #ffffff;
   background: rgba(255, 255, 255, 0.05);
 }
 
 .cfg-tab-btn.is-active {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: var(--ember-solid, #06b6d4);
-  color: var(--ember-solid, #06b6d4);
-  box-shadow: 0 0 18px var(--ember-soft, rgba(6, 182, 212, 0.25));
+  border-color: transparent !important;
+  background: transparent !important;
+  color: var(--text, #ffffff) !important;
+  box-shadow: none !important;
+}
+
+.cfg-tab-btn.is-active .cfg-tab-icon {
+  color: var(--ember-solid, #06b6d4) !important;
 }
 
 .cfg-tab-icon {
@@ -5651,4 +6020,133 @@ html, body, #root, .window-frame {
   border-bottom: 2.5px solid var(--ember, #00b884) !important;
   background: var(--ember-soft, rgba(0, 184, 132, 0.09)) !important;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), 0 2px 8px var(--ember-soft, rgba(0, 184, 132, 0.2)) !important;
+}
+
+/* ==========================================================================
+   SPLASH SCREEN & BOOT LOADER (COFFEE CUP WITH DOWNLOAD ICON)
+   ========================================================================== */
+.sf-splash-screen,
+.boot-loader {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 99999;
+  background: radial-gradient(circle at 50% 40%, #1a1e29 0%, #0b0d12 70%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: opacity 0.4s ease, visibility 0.4s ease;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.sf-splash-fade {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.sf-splash-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.sf-splash-cup-wrap {
+  position: relative;
+  display: grid;
+  place-items: center;
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.5));
+}
+
+.sf-splash-steam .sf-steam-1 {
+  animation: sf-steam-drift 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  transform-origin: bottom center;
+}
+
+.sf-splash-steam .sf-steam-2 {
+  animation: sf-steam-drift 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite 0.6s;
+  transform-origin: bottom center;
+}
+
+@keyframes sf-steam-drift {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scaleX(0.9);
+  }
+  40% {
+    opacity: 0.55;
+  }
+  80% {
+    opacity: 0.2;
+    transform: translateY(-8px) scaleX(1.15);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-14px) scaleX(1.3);
+  }
+}
+
+.sf-splash-arrow {
+  filter: drop-shadow(0 2px 5px rgba(245, 158, 11, 0.45));
+  animation: sf-arrow-subtle-bounce 2s ease-in-out infinite;
+}
+
+@keyframes sf-arrow-subtle-bounce {
+  0%, 100% { transform: translate(76px, 85px); }
+  50% { transform: translate(76px, 87px); }
+}
+
+.sf-splash-text {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: 0.6px;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.sf-splash-dots {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sf-splash-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #334155;
+  transition: all 0.3s ease;
+}
+
+.sf-dot-1 {
+  animation: sf-dot-glow 1.2s ease-in-out infinite 0s;
+}
+
+.sf-dot-2 {
+  animation: sf-dot-glow 1.2s ease-in-out infinite 0.25s;
+}
+
+.sf-dot-3 {
+  animation: sf-dot-glow 1.2s ease-in-out infinite 0.5s;
+}
+
+@keyframes sf-dot-glow {
+  0%, 100% {
+    background: #334155;
+    transform: scale(1);
+    box-shadow: none;
+  }
+  40% {
+    background: #f59e0b;
+    transform: scale(1.25);
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.7);
+  }
 }

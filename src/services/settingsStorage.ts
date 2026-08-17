@@ -22,6 +22,7 @@ export function syncExtensionTheme(settings: AppSettings): void {
       gradient_cyberpunk: "#ec4899",
       gradient_ocean: "#06b6d4",
       gradient_aurora: "#10b981",
+      gradient_flow: "#7928ca",
     };
 
     let accent = accentMap[settings.accentColor] || "#00b884";
@@ -52,14 +53,18 @@ export function syncExtensionTheme(settings: AppSettings): void {
       }
     }
 
-    void invoke("update_extension_theme", { accent, bg }).catch(() => {});
+    void invoke("update_extension_theme", { accent, bg, language: settings.language }).catch(() => {});
   } catch {}
 }
 
 export function loadSettings(): AppSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    const settings = !raw ? defaultSettings : { ...defaultSettings, ...JSON.parse(raw) };
+    const navLang = (navigator.language || (navigator.languages && navigator.languages[0]) || "").toLowerCase();
+    const defaultLang = navLang.startsWith("pt") ? "pt-BR" : "en-US";
+    const baseDefaults: AppSettings = { ...defaultSettings, language: defaultLang };
+
+    const settings = !raw ? baseDefaults : { ...baseDefaults, ...JSON.parse(raw) };
     syncExtensionTheme(settings);
     return settings;
   } catch {

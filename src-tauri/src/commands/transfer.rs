@@ -256,9 +256,9 @@ pub async fn open_progress_window(app: AppHandle, id: String) -> Result<(), Stri
         .center();
 
     let build_result = if is_torrent {
-        builder.inner_size(470.0, 205.0).resizable(true).build()
+        builder.inner_size(470.0, 205.0).resizable(false).build()
     } else {
-        builder.inner_size(450.0, 205.0).resizable(true).build()
+        builder.inner_size(450.0, 205.0).resizable(false).build()
     };
 
     {
@@ -318,7 +318,7 @@ pub async fn open_torrent_progress_window(
     let build_result = WebviewWindowBuilder::new(&app, &label, window_url)
         .title("SF Downloader - Torrent")
         .inner_size(470.0, 205.0)
-        .resizable(true)
+        .resizable(false)
         .decorations(false)
         .shadow(false)
         .visible(false)
@@ -370,7 +370,7 @@ pub async fn open_complete_window(app: AppHandle, id: String) -> Result<(), Stri
     let build_result = WebviewWindowBuilder::new(&app, &label, url)
         .title("SF Downloader - Download")
         .inner_size(450.0, 205.0)
-        .resizable(true)
+        .resizable(false)
         .decorations(false)
         .shadow(false)
         .visible(false)

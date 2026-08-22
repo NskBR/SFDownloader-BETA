@@ -40,7 +40,7 @@ export function BrowserIntegrationPage() {
       window.setTimeout(() => setCopied(false), 2000);
     });
   };
-  const xpiFileName = "7c2944a3066543438b23-0.3.3.xpi";
+  const xpiFileName = "7c2944a3066543438b23-0.3.4.xpi";
   const openXpi = () =>
     firefoxFolder && void service.openFile(`${firefoxFolder}/${xpiFileName}`).catch(console.error);
   const close = () => void appWindow.close();

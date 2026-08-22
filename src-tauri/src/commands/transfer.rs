@@ -1888,18 +1888,28 @@ pub fn get_extension_dir(app: AppHandle, browser: String) -> Result<String, Stri
         }
 
         // Copia o arquivo XPI para instalação direta ou manual.
-        let release_dir = app_data
-            .join("..")
-            .join("..")
-            .join("browser-extension")
-            .join("release");
+        let release_candidates = [
+            PathBuf::from("browser-extension").join("release"),
+            PathBuf::from("../browser-extension").join("release"),
+            PathBuf::from("../../browser-extension").join("release"),
+            app_data
+                .join("..")
+                .join("..")
+                .join("browser-extension")
+                .join("release"),
+        ];
+        let release_dir = release_candidates
+            .into_iter()
+            .find(|p| p.exists())
+            .unwrap_or_else(|| PathBuf::from(""));
         let xpi_bytes = find_latest_xpi(&release_dir)
             .and_then(|path| std::fs::read(&path).ok())
             .unwrap_or_else(|| {
                 include_bytes!("../../../browser-extension/release/firefox-extension.xpi").to_vec()
             });
-        let xpi_name = "7c2944a3066543438b23-0.3.3.xpi";
+        let xpi_name = "7c2944a3066543438b23-0.3.4.xpi";
         let _ = std::fs::write(ext_dir.join(xpi_name), &xpi_bytes);
+        let _ = std::fs::write(ext_dir.join("firefox-extension.xpi"), &xpi_bytes);
         let _ = std::fs::write(ext_dir.join("integration.xpi"), &xpi_bytes);
     }
 

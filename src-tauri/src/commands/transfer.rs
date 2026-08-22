@@ -1756,12 +1756,21 @@ pub fn get_extension_dir(app: AppHandle, browser: String) -> Result<String, Stri
     std::fs::create_dir_all(&ext_dir).map_err(|e| e.to_string())?;
     std::fs::create_dir_all(ext_dir.join("icons")).map_err(|e| e.to_string())?;
 
-    let project_dist = app_data
-        .join("..")
-        .join("..")
-        .join("browser-extension")
-        .join("dist")
-        .join(&browser);
+    let candidates = [
+        PathBuf::from("browser-extension").join("dist").join(&browser),
+        PathBuf::from("../browser-extension").join("dist").join(&browser),
+        PathBuf::from("../../browser-extension").join("dist").join(&browser),
+        app_data
+            .join("..")
+            .join("..")
+            .join("browser-extension")
+            .join("dist")
+            .join(&browser),
+    ];
+    let project_dist = candidates
+        .into_iter()
+        .find(|p| p.exists())
+        .unwrap_or_else(|| PathBuf::from(""));
 
     if browser == "chromium" {
         let files = [

@@ -493,11 +493,29 @@ export function DownloadWindow({ downloadId }: { downloadId: string }) {
 
             {isCompleted ? (
               <div className="dw-footer-actions">
-                <button className="dw-btn-primary" onClick={() => void service.openFile(task.finalPath)}>
+                <button
+                  className="dw-btn-primary"
+                  onClick={async () => {
+                    try {
+                      await service.openFile(task.finalPath);
+                    } finally {
+                      void appWindow.close();
+                    }
+                  }}
+                >
                   <FileText size={16} />
                   {t.common.openFile}
                 </button>
-                <button className="dw-btn-ghost" onClick={() => void service.revealInFolder(task.finalPath)}>
+                <button
+                  className="dw-btn-ghost"
+                  onClick={async () => {
+                    try {
+                      await service.revealInFolder(task.finalPath);
+                    } finally {
+                      void appWindow.close();
+                    }
+                  }}
+                >
                   <FolderOpen size={16} />
                   {t.common.openFolder}
                 </button>

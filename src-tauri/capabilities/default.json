@@ -9,7 +9,8 @@
     "download-*",
     "download-torrent-*",
     "torrent-progress-*",
-    "browser-integration"
+    "browser-integration",
+    "debug-logs"
   ],
   "permissions": [
     "core:default",

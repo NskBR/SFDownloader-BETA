@@ -209,7 +209,7 @@ export function ConfirmationPage({ token }: { token: string }) {
         .finally(() => active && setLoading(false));
     } else {
       void service
-        .inspectDownload(payload.url)
+        .inspectDownload(payload.url, payload.requestId)
         .then((result) => {
           if (!active) return;
           setPreview((prev) => ({

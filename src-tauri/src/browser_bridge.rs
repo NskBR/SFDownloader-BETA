@@ -79,6 +79,11 @@ impl BrowserBridge {
             && self.last_seen.load(Ordering::SeqCst) > 0
     }
 
+    pub fn get_headers(&self, id: Option<&str>) -> HeaderMap {
+        id.and_then(|id| self.contexts.lock().ok()?.get(id).cloned())
+            .unwrap_or_default()
+    }
+
     pub fn take_headers(&self, id: Option<&str>) -> HeaderMap {
         id.and_then(|id| self.contexts.lock().ok()?.remove(id))
             .unwrap_or_default()

@@ -346,25 +346,38 @@ function shouldInterceptHeaders(info) {
   return null;
 }
 
-function cookiesFor(url) {
-  return new Promise(resolve => chrome.cookies.getAll({ url }, cookies => {
-    void chrome.runtime.lastError;
-    resolve((cookies || []).map(cookie => `${cookie.name}=${cookie.value}`).join("; "));
-  }));
+function cookiesFor(url, referrer) {
+  return new Promise(resolve => {
+    chrome.cookies.getAll({ url }, cookies => {
+      void chrome.runtime.lastError;
+      const list = (cookies || []).map(cookie => `${cookie.name}=${cookie.value}`);
+      if (referrer && referrer.startsWith("http")) {
+        chrome.cookies.getAll({ url: referrer }, refCookies => {
+          void chrome.runtime.lastError;
+          const refList = (refCookies || []).map(c => `${c.name}=${c.value}`);
+          const combined = Array.from(new Set([...list, ...refList])).join("; ");
+          resolve(combined);
+        });
+      } else {
+        resolve(list.join("; "));
+      }
+    });
+  });
 }
 
 async function sendToApp(download) {
   const url = download.finalUrl || download.url;
 
   const observed = recentHeaders.get(url) || {};
-  const cookie = await cookiesFor(url);
+  const referrer = download.referrer || observed.referrer || null;
+  const cookie = await cookiesFor(url, referrer);
   const payload = {
     token: bridge.token,
     url,
     filename: download.filename || null,
     fileSize: download.fileSize > 0 ? download.fileSize : observed.fileSize || null,
     mimeType: download.mime || observed.mimeType || null,
-    referrer: download.referrer || observed.referrer || null,
+    referrer,
     cookie: cookie || null,
     requestHeaders: observed.requestHeaders || download.requestHeaders || { "User-Agent": [navigator.userAgent] }
   };

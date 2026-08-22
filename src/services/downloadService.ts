@@ -40,8 +40,11 @@ const input = (
   force,
 });
 export const listDownloads = () => invoke<DownloadTask[]>("list_downloads");
-export const inspectDownload = (url: string) =>
-  invoke<DownloadPreview>("inspect_download", { url });
+export const inspectDownload = (url: string, requestId?: string) =>
+  invoke<DownloadPreview>("inspect_download", {
+    url,
+    requestId: requestId || null,
+  });
 export const openDownloadConfirmation = (token: string, url = "") =>
   invoke<void>("open_download_confirmation", { token, url });
 

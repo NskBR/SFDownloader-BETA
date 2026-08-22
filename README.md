@@ -22,7 +22,7 @@ Construído com **Tauri 2 + React + Rust** — leve, nativo e sem Electron.
 > - [x] Motor de download HTTP/HTTPS com segmentação por Range
 > - [x] Pausa, retomada e recuperação automática de downloads interrompidos
 > - [x] Extração automática de arquivos compactados (ZIP, RAR, 7Z, TAR) com senha
-> - [x] Extensão oficial para navegadores Chromium (Chrome, Edge, Brave, Opera) e Firefox (v0.3.3)
+> - [x] Extensão oficial para navegadores Chromium (Chrome, Edge, Brave, Opera) e Firefox (v0.3.4)
 > - [x] Suporte multilíngue completo com sincronização dinâmica (Português & Inglês)
 > - [x] Notificador nativo de atualizações via GitHub Releases na barra de título
 > - [x] Temas futuristas com customizador de cores sólidas e gradientes dinâmicos

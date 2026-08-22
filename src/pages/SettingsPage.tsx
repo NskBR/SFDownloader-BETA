@@ -20,6 +20,7 @@ import {
   Dices,
   HardDrive,
   Bot,
+  Bug,
 } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -194,6 +195,10 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
 
   const openBrowserIntegration = () => {
     void invoke("open_browser_integration_window").catch(console.error);
+  };
+
+  const openDebugWindow = () => {
+    void invoke("open_debug_window").catch(console.error);
   };
 
   const selectFolder = async () => {
@@ -1044,6 +1049,33 @@ export function SettingsPage({ settings, onSave, saved }: Props) {
                 >
                   <Globe size={15} />
                   <span>{t.settings.advancedTab.configureIntegrationBtn}</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="cfg-card">
+              <div className="cfg-card-header" style={{ justifyContent: "space-between", width: "100%" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <div className="cfg-card-icon-box">
+                    <Bug className="cfg-card-icon" size={20} />
+                  </div>
+                  <div>
+                    <h3 className="cfg-card-title">{t.settings.advancedTab.debugMenuTitle}</h3>
+                    <p className="cfg-card-subtitle">{t.settings.advancedTab.debugMenuSubtitle}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="cfg-card-content">
+                <p style={{ fontSize: "12.5px", color: "var(--text-2)", marginBottom: "12px" }}>
+                  {t.settings.advancedTab.debugMenuDesc}
+                </p>
+                <button
+                  type="button"
+                  className="cfg-btn-alterar"
+                  onClick={openDebugWindow}
+                >
+                  <Bug size={15} />
+                  <span>{t.settings.advancedTab.openDebugMenuBtn}</span>
                 </button>
               </div>
             </div>

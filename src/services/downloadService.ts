@@ -207,3 +207,18 @@ export interface UpdateCheckResult {
 export const checkForUpdates = (repoOverride?: string) =>
   invoke<UpdateCheckResult>("check_for_updates", { repoOverride });
 
+export interface DebugLogEntry {
+  id: string;
+  timestamp: string;
+  level: "error" | "warn" | "info";
+  category: string;
+  message: string;
+  details?: string | null;
+  targetUrl?: string | null;
+  downloadId?: string | null;
+}
+
+export const getDebugLogs = () => invoke<DebugLogEntry[]>("get_debug_logs");
+export const clearDebugLogs = () => invoke<void>("clear_debug_logs");
+export const openDebugWindow = () => invoke<void>("open_debug_window");
+

@@ -259,6 +259,10 @@ export const enUS: Translations = {
       extensionBadge: "Extension v0.3.4",
       extensionCardDesc: "Install the official SF Downloader extension (version v0.3.4) to capture downloads in Chromium browsers (Chrome, Edge, Opera, Brave, Vivaldi) and Firefox.",
       configureIntegrationBtn: "Configure Integration",
+      debugMenuTitle: "Debug Menu",
+      debugMenuSubtitle: "Real-time system logs and crash diagnostics.",
+      debugMenuDesc: "Opens an independent window with the full history of logs, network errors, download failures, and technical system diagnostics.",
+      openDebugMenuBtn: "Open Debug Menu",
     },
   },
   metrics: {

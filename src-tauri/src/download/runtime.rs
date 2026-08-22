@@ -66,6 +66,7 @@ impl TaskControl {
         self.action.store(ACTION_CANCEL, Ordering::SeqCst);
         self.cancellation.cancel();
     }
+    #[allow(dead_code)]
     pub fn abort(&self) {
         self.cancellation.cancel();
     }

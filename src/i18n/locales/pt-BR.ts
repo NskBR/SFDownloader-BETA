@@ -257,6 +257,10 @@ export const ptBR = {
       extensionBadge: "Extensão v0.3.4",
       extensionCardDesc: "Instale a extensão oficial do SF Downloader (versão v0.3.4) para capturar downloads nos navegadores Chromium (Chrome, Edge, Opera, Brave, Vivaldi) e Firefox.",
       configureIntegrationBtn: "Configurar Integração",
+      debugMenuTitle: "Menu Debug",
+      debugMenuSubtitle: "Logs do sistema em tempo real e diagnóstico de falhas.",
+      debugMenuDesc: "Abre uma janela independente com o histórico completo de logs, erros de rede, falhas de download e diagnóstico técnico do aplicativo.",
+      openDebugMenuBtn: "Abrir Menu Debug",
     },
   },
   metrics: {

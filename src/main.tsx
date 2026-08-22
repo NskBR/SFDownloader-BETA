@@ -10,6 +10,7 @@ import { DownloadWindow } from "./pages/DownloadWindow";
 import { TorrentConfirmationPage } from "./pages/TorrentConfirmationPage";
 import { TorrentProgressWindow } from "./pages/TorrentProgressWindow";
 import { BrowserIntegrationPage } from "./pages/BrowserIntegrationPage";
+import { DebugLogsWindow } from "./pages/DebugLogsWindow";
 import { loadSettings } from "./services/settingsStorage";
 import { applyThemeSettings } from "./services/theme";
 import type { AppSettings } from "./domain/settings";
@@ -24,6 +25,7 @@ const isConfirmationWindow = Boolean(confirmationMatch);
 const isTorrentLiveWindow = Boolean(torrentProgressMatch);
 const isLiveWindow = label.startsWith("download-") && !isConfirmationWindow && !isTorrentConfirmation && !isTorrentLiveWindow;
 const isBrowserIntegrationWindow = label === "browser-integration";
+const isDebugWindow = label === "debug-logs";
 const isMainWindow = label === "main";
 
 if (isMainWindow) {
@@ -38,6 +40,9 @@ if (isMainWindow) {
 } else if (isBrowserIntegrationWindow) {
   document.documentElement.classList.add("window-type-integration");
   document.body.classList.add("window-type-integration");
+} else if (isDebugWindow) {
+  document.documentElement.classList.add("window-type-debug");
+  document.body.classList.add("window-type-debug");
 }
 
 const initialSettings = loadSettings();
@@ -83,7 +88,9 @@ if (label === "main") {
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    {isTorrentConfirmation ? (
+    {isDebugWindow ? (
+      <DebugLogsWindow />
+    ) : isTorrentConfirmation ? (
       <TorrentConfirmationPage token={torrentConfirmMatch![1]} />
     ) : isConfirmationWindow ? (
       <ConfirmationPage token={confirmationMatch![1]} />

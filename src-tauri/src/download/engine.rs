@@ -21,6 +21,9 @@ use std::{
     time::{Duration, Instant, SystemTime},
 };
 
+pub const DEFAULT_USER_AGENT: &str =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
 const MAX_CHUNK_ATTEMPTS: usize = 8;
 const UI_UPDATE_INTERVAL: Duration = Duration::from_millis(200);
 const PERSIST_INTERVAL: Duration = Duration::from_secs(1);
@@ -208,7 +211,7 @@ pub async fn prepare_with_headers(
         return Err("Apenas URLs HTTP ou HTTPS são permitidas.".into());
     }
     let client = Client::builder()
-        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+        .user_agent(DEFAULT_USER_AGENT)
         .redirect(reqwest::redirect::Policy::limited(10))
         .build()
         .map_err(|error| format!("Falha ao preparar conexão: {error}"))?;
@@ -217,8 +220,26 @@ pub async fn prepare_with_headers(
         .headers(request_headers.clone())
         .send()
         .await
-        .map_err(|error| format!("Falha ao conectar ao servidor: {error}"))?;
+        .map_err(|error| {
+            crate::commands::debug::log_error(
+                "download",
+                &format!("Falha ao conectar na URL: {error}"),
+                Some(error.to_string()),
+                Some(url.to_string()),
+                None,
+                None,
+            );
+            format!("Falha ao conectar ao servidor: {error}")
+        })?;
     if !response.status().is_success() {
+        crate::commands::debug::log_error(
+            "download",
+            &format!("Servidor respondeu com erro HTTP {}", response.status()),
+            Some(format!("HTTP Status: {}", response.status())),
+            Some(url.to_string()),
+            None,
+            None,
+        );
         return Err(format!(
             "O servidor respondeu com HTTP {}.",
             response.status()
@@ -358,7 +379,7 @@ pub async fn prepare_resume(
         return Err("O arquivo parcial possui um tamanho incompatível.".into());
     }
     let client = Client::builder()
-        .user_agent("SF Downloader/0.1")
+        .user_agent(DEFAULT_USER_AGENT)
         .redirect(reqwest::redirect::Policy::limited(10))
         .build()
         .map_err(|error| format!("Falha ao preparar conexão: {error}"))?;
@@ -684,7 +705,7 @@ async fn transfer_segmented(
     );
     let downloaded = Arc::new(AtomicI64::new(initial));
     let client = Client::builder()
-        .user_agent("SF Downloader/0.1")
+        .user_agent(DEFAULT_USER_AGENT)
         .redirect(reqwest::redirect::Policy::limited(10))
         .pool_max_idle_per_host(max_connections)
         .tcp_nodelay(true)
@@ -748,7 +769,6 @@ async fn transfer_segmented(
                                 *first = Some(error);
                             }
                         }
-                        control.abort();
                     }
                     break;
                 }
@@ -762,12 +782,11 @@ async fn transfer_segmented(
                     *first = Some(format!("Worker encerrado: {error}"));
                 }
             }
-            control.abort();
         }
     }
     let failure = first_error.lock().ok().and_then(|mut error| error.take());
     if let Some(error) = failure {
-        if error.contains("recusou HTTP Range") && downloaded.load(Ordering::SeqCst) == 0 {
+        if error.contains("recusou HTTP Range") && downloaded.load(Ordering::SeqCst) == 0 && !control.was_cancelled() && !control.was_paused() {
             let response = client
                 .get(&task.current_url)
                 .headers(minimal_range_headers(&request_headers))
@@ -785,12 +804,17 @@ async fn transfer_segmented(
             if let Ok(connection) = database.connect() {
                 let _ = chunks::delete_plan(&connection, &task.id);
             }
-            return transfer(app, database, task, response, control, started, 0).await;
+            let fallback_control = TaskControl::new();
+            fallback_control.set_speed_limit(task.speed_limit_download).await;
+            return transfer(app, database, task, response, &fallback_control, started, 0).await;
         }
         return Err(error);
     }
-    if control.cancellation.is_cancelled() {
-        return Err("Download interrompido pelo usuário.".into());
+    if control.was_cancelled() {
+        return Err("Download cancelado pelo usuário.".into());
+    }
+    if control.was_paused() {
+        return Err("Download pausado.".into());
     }
     update_state(
         database,

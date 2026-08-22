@@ -255,7 +255,10 @@ pub fn run() {
             is_autostart_enabled,
             is_autostart_boot,
             download::extraction::extraction_status,
-            commands::updater::check_for_updates
+            commands::updater::check_for_updates,
+            commands::debug::get_debug_logs,
+            commands::debug::clear_debug_logs,
+            commands::debug::open_debug_window
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o SF Downloader");

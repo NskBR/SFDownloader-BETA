@@ -134,31 +134,43 @@ export function DebugLogsWindow() {
   return (
     <div className="dbg-window">
       {/* Titlebar Customizada */}
-      <header className="dbg-header" data-tauri-drag-region>
-        <div className="dbg-header-left">
-          <div className="dbg-header-icon">
-            <Bug size={16} />
+      <header
+        className="dbg-header"
+        data-tauri-drag-region
+        onMouseDown={(e) => {
+          if (e.buttons === 1) {
+            void appWindow.startDragging().catch(() => {});
+          }
+        }}
+        onDoubleClick={() => void appWindow.toggleMaximize()}
+      >
+        <div className="dbg-header-left" data-tauri-drag-region>
+          <div className="dbg-header-icon" data-tauri-drag-region>
+            <Bug size={16} style={{ pointerEvents: "none" }} />
           </div>
-          <div className="dbg-header-title">
-            <strong>Menu Debug</strong>
-            <span>Logs do Sistema & Diagnóstico</span>
+          <div className="dbg-header-title" data-tauri-drag-region>
+            <strong data-tauri-drag-region>Menu Debug</strong>
+            <span data-tauri-drag-region>Logs do Sistema & Diagnóstico</span>
           </div>
         </div>
 
-        <div className="dbg-header-badges">
-          <span className={`dbg-badge-pill error ${errorCount > 0 ? "active" : ""}`}>
-            <AlertCircle size={12} />
+        <div className="dbg-header-badges" data-tauri-drag-region>
+          <span className={`dbg-badge-pill error ${errorCount > 0 ? "active" : ""}`} data-tauri-drag-region>
+            <AlertCircle size={12} style={{ pointerEvents: "none" }} />
             {errorCount} {errorCount === 1 ? "Erro" : "Erros"}
           </span>
           {warnCount > 0 && (
-            <span className="dbg-badge-pill warn active">
-              <AlertTriangle size={12} />
+            <span className="dbg-badge-pill warn active" data-tauri-drag-region>
+              <AlertTriangle size={12} style={{ pointerEvents: "none" }} />
               {warnCount} {warnCount === 1 ? "Aviso" : "Avisos"}
             </span>
           )}
         </div>
 
-        <div className="dbg-header-controls nodrag">
+        <div
+          className="dbg-header-controls nodrag"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
           <button
             type="button"
             className="dbg-ctrl-btn"
